@@ -35,7 +35,7 @@ Está hecho con Angular y Foblex Flow y se conecta a la API del repositorio del 
 
 ## Requisitos
 
-- Node.js 22 o superior
+- Node.js 24 o superior
 - El backend de UML Studio en marcha en `http://localhost:4000`
 
 ## Puesta en marcha
