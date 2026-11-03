@@ -1,0 +1,197 @@
+<div
+  data-tour="node-modal"
+  class="uml-floating-panel absolute z-50 flex w-[360px] flex-col"
+  [style.left.px]="left()"
+  [style.top.px]="top()"
+  (click)="$event.stopPropagation()"
+  (dblclick)="$event.stopPropagation()"
+  (pointerdown)="$event.stopPropagation()"
+  (wheel)="$event.stopPropagation()"
+  role="dialog"
+  [attr.aria-label]="'editor.classPanel.title' | translate"
+>
+  <div class="flex h-10 shrink-0 items-center justify-between border-b border-line pr-1.5 pl-3.5">
+    <span class="section-title">{{ 'editor.classPanel.title' | translate }}</span>
+    <button
+      type="button"
+      (click)="closed.emit()"
+      [title]="'common.close' | translate"
+      class="btn btn-ghost btn-icon !h-7 !w-7"
+    >
+      <ng-icon name="heroXMark" class="text-sm"></ng-icon>
+    </button>
+  </div>
+
+  <div class="flex-1 space-y-4 overflow-y-auto px-3.5 py-3.5">
+    <!-- Nombre -->
+    <div>
+      <label class="label" for="class-panel-name">{{
+        'editor.nodeModal.className' | translate
+      }}</label>
+      <input
+        id="class-panel-name"
+        type="text"
+        [value]="node().name"
+        (input)="onNameChange($any($event.target).value)"
+        placeholder="Usuario, Pedido…"
+        class="input input-sm font-medium"
+      />
+    </div>
+
+    <!-- Atributos -->
+    <section>
+      <span class="section-title mb-1.5 block">{{
+        'editor.nodeModal.attributes' | translate
+      }}</span>
+      <div class="space-y-1">
+        @for (attr of node().attributes; track $index; let i = $index) {
+          <div
+            class="group flex items-center gap-1 rounded-md"
+            [class.uml-row-drop]="
+              dragKind() === 'attributes' && dropIndex() === i && dragIndex() !== i
+            "
+            [class.opacity-40]="dragKind() === 'attributes' && dragIndex() === i"
+            [attr.draggable]="isDraggable('attributes', i)"
+            (dragstart)="onDragStart($event)"
+            (dragover)="onDragOver('attributes', i, $event)"
+            (drop)="onDrop('attributes', i, $event)"
+            (dragend)="endDrag()"
+          >
+            <span
+              (mousedown)="armDrag('attributes', i)"
+              (mouseup)="endDrag()"
+              [title]="'editor.classPanel.dragToReorder' | translate"
+              class="grid h-7 w-4 shrink-0 cursor-grab place-items-center text-fg-subtle opacity-0 transition-opacity group-hover:opacity-100"
+            >
+              <ng-icon name="heroBars2" class="text-xs"></ng-icon>
+            </span>
+            <span class="w-2.5 shrink-0 text-center font-mono text-xs text-fg-subtle select-none"
+              >−</span
+            >
+            <input
+              [id]="'attr-name-' + i"
+              type="text"
+              [value]="attr.name"
+              (input)="updateAttribute(i, { name: $any($event.target).value })"
+              (keydown.enter)="onRowEnter('attributes', i, $event)"
+              [placeholder]="'editor.classPanel.attrNamePlaceholder' | translate"
+              class="input input-sm min-w-0 flex-1 font-mono"
+            />
+            <select
+              [value]="attr.type"
+              (change)="updateAttribute(i, { type: $any($event.target).value })"
+              class="input input-sm w-[118px] shrink-0 font-mono"
+            >
+              @for (t of predefinedTypes(); track t) {
+                <option [value]="t" [selected]="t === attr.type">{{ t }}</option>
+              }
+            </select>
+            <button
+              type="button"
+              (click)="removeAttribute(i)"
+              [title]="'editor.nodeModal.deleteAttribute' | translate"
+              class="btn btn-ghost btn-icon !h-7 !w-7 shrink-0 text-fg-subtle hover:!bg-red-500/10 hover:!text-red-300"
+            >
+              <ng-icon name="heroTrash" class="text-xs"></ng-icon>
+            </button>
+          </div>
+        }
+        <button type="button" (click)="addAttribute()" class="uml-add-row">
+          <ng-icon name="heroPlus" class="text-xs"></ng-icon>
+          {{ 'editor.classPanel.addAttribute' | translate }}
+        </button>
+      </div>
+    </section>
+
+    <!-- Métodos -->
+    <section>
+      <span class="section-title mb-1.5 block">{{
+        'editor.nodeModal.operations' | translate
+      }}</span>
+      <div class="space-y-1">
+        @for (m of node().methods; track $index; let i = $index) {
+          <div
+            class="group flex items-center gap-1 rounded-md"
+            [class.uml-row-drop]="
+              dragKind() === 'methods' && dropIndex() === i && dragIndex() !== i
+            "
+            [class.opacity-40]="dragKind() === 'methods' && dragIndex() === i"
+            [attr.draggable]="isDraggable('methods', i)"
+            (dragstart)="onDragStart($event)"
+            (dragover)="onDragOver('methods', i, $event)"
+            (drop)="onDrop('methods', i, $event)"
+            (dragend)="endDrag()"
+          >
+            <span
+              (mousedown)="armDrag('methods', i)"
+              (mouseup)="endDrag()"
+              [title]="'editor.classPanel.dragToReorder' | translate"
+              class="grid h-7 w-4 shrink-0 cursor-grab place-items-center text-fg-subtle opacity-0 transition-opacity group-hover:opacity-100"
+            >
+              <ng-icon name="heroBars2" class="text-xs"></ng-icon>
+            </span>
+            <span class="w-2.5 shrink-0 text-center font-mono text-xs text-fg-subtle select-none"
+              >+</span
+            >
+            <input
+              [id]="'method-name-' + i"
+              type="text"
+              [value]="m.name"
+              (input)="updateMethod(i, { name: $any($event.target).value })"
+              (keydown.enter)="onRowEnter('methods', i, $event)"
+              [placeholder]="'editor.classPanel.methodNamePlaceholder' | translate"
+              class="input input-sm min-w-0 flex-1 font-mono"
+            />
+            <input
+              type="text"
+              [value]="m.parameters"
+              (input)="updateMethod(i, { parameters: $any($event.target).value })"
+              (keydown.enter)="onRowEnter('methods', i, $event)"
+              [placeholder]="'editor.classPanel.paramsPlaceholder' | translate"
+              class="input input-sm w-[70px] shrink-0 font-mono"
+            />
+            <select
+              [value]="m.returnType"
+              (change)="updateMethod(i, { returnType: $any($event.target).value })"
+              class="input input-sm w-[92px] shrink-0 font-mono"
+            >
+              @for (rt of predefinedReturnTypes(); track rt) {
+                <option [value]="rt" [selected]="rt === m.returnType">{{ rt }}</option>
+              }
+            </select>
+            <button
+              type="button"
+              (click)="removeMethod(i)"
+              [title]="'editor.nodeModal.deleteOperation' | translate"
+              class="btn btn-ghost btn-icon !h-7 !w-7 shrink-0 text-fg-subtle hover:!bg-red-500/10 hover:!text-red-300"
+            >
+              <ng-icon name="heroTrash" class="text-xs"></ng-icon>
+            </button>
+          </div>
+        }
+        <button type="button" (click)="addMethod()" class="uml-add-row">
+          <ng-icon name="heroPlus" class="text-xs"></ng-icon>
+          {{ 'editor.classPanel.addMethod' | translate }}
+        </button>
+      </div>
+      <p class="mt-2 flex items-start gap-1.5 text-[11px] leading-snug text-fg-subtle">
+        <ng-icon name="heroInformationCircle" class="mt-px shrink-0 text-xs"></ng-icon>
+        <span>{{ 'editor.classPanel.methodsNote' | translate }}</span>
+      </p>
+    </section>
+  </div>
+
+  <div class="flex shrink-0 items-center justify-between border-t border-line px-3.5 py-2.5">
+    <button
+      type="button"
+      (click)="deleted.emit()"
+      class="btn btn-ghost btn-sm text-fg-muted hover:!bg-red-500/10 hover:!text-red-300"
+    >
+      <ng-icon name="heroTrash" class="text-sm"></ng-icon>
+      <span>{{ 'editor.classPanel.delete' | translate }}</span>
+    </button>
+    <button type="button" (click)="closed.emit()" class="btn btn-primary btn-sm">
+      {{ 'editor.classPanel.done' | translate }}
+    </button>
+  </div>
+</div>

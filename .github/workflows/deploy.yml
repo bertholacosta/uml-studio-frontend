@@ -1,0 +1,66 @@
+name: Deploy
+
+# Cada push a main: pruebas → compilación → S3 → invalidación de CloudFront.
+# Variables del repositorio (Settings → Secrets and variables → Actions → Variables),
+# salen de las salidas de la pila infra/uml-studio.yml del backend:
+#   AWS_REGION, AWS_ROLE_ARN, SITE_BUCKET y CLOUDFRONT_DISTRIBUTION_ID
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # OIDC: credenciales temporales de AWS, sin claves guardadas
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: Publicar en S3 y CloudFront
+    needs: ci
+    # Se omite hasta que el repositorio tenga las variables de AWS
+    if: vars.AWS_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      # config.js queda vacío: la API se sirve en el mismo dominio (/api y /socket.io en CloudFront)
+      - run: npm run build -- --configuration production
+
+      - name: Credenciales de AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Subir a S3
+        working-directory: dist/frontend/browser
+        run: |
+          BUCKET="s3://${{ vars.SITE_BUCKET }}"
+          # 1. Archivos nuevos (los que llevan hash en el nombre se guardan en caché un año)
+          aws s3 sync . "$BUCKET" --exclude index.html --exclude config.js \
+            --cache-control "public, max-age=31536000, immutable"
+          # 2. index.html y config.js siempre se revalidan, para que cada versión llegue al momento
+          aws s3 cp index.html "$BUCKET/index.html" --cache-control "no-cache"
+          aws s3 cp config.js "$BUCKET/config.js" --cache-control "no-cache"
+          # 3. Solo ahora se borran los archivos de la versión anterior
+          aws s3 sync . "$BUCKET" --delete --exclude index.html --exclude config.js \
+            --cache-control "public, max-age=31536000, immutable"
+
+      - name: Invalidar la caché de CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --paths "/index.html" "/config.js"

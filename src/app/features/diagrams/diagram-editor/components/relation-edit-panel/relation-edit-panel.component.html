@@ -1,0 +1,156 @@
+<div
+  class="uml-floating-panel absolute z-50 flex w-[320px] flex-col"
+  [style.left.px]="left()"
+  [style.top.px]="top()"
+  (click)="$event.stopPropagation()"
+  (dblclick)="$event.stopPropagation()"
+  (pointerdown)="$event.stopPropagation()"
+  (wheel)="$event.stopPropagation()"
+  role="dialog"
+  [attr.aria-label]="'editor.relationPanel.title' | translate"
+>
+  <div class="flex h-10 shrink-0 items-center justify-between border-b border-line pr-1.5 pl-3.5">
+    <span class="section-title">{{ 'editor.relationPanel.title' | translate }}</span>
+    <div class="flex items-center gap-0.5">
+      <button
+        type="button"
+        (click)="swap.emit()"
+        [title]="'editor.connModal.swapDirection' | translate"
+        class="btn btn-ghost btn-icon !h-7 !w-7"
+      >
+        <ng-icon name="heroArrowsRightLeft" class="text-sm"></ng-icon>
+      </button>
+      <button
+        type="button"
+        (click)="closed.emit()"
+        [title]="'common.close' | translate"
+        class="btn btn-ghost btn-icon !h-7 !w-7"
+      >
+        <ng-icon name="heroXMark" class="text-sm"></ng-icon>
+      </button>
+    </div>
+  </div>
+
+  <div class="flex-1 space-y-4 overflow-y-auto px-3.5 py-3.5">
+    <!-- Tipo -->
+    <section>
+      <span class="section-title mb-1.5 block">{{ 'editor.connModal.type' | translate }}</span>
+      <div class="grid grid-cols-2 gap-1">
+        @for (rel of relationOptions; track rel.id) {
+          <button
+            type="button"
+            (click)="setType(rel.id)"
+            [disabled]="hasAssociationClass() && rel.id !== 'association'"
+            [class.uml-option-active]="connection().type === rel.id"
+            class="uml-option"
+          >
+            <app-relation-icon [type]="rel.id" />
+            <span class="truncate">{{ rel.labelKey | translate }}</span>
+          </button>
+        }
+      </div>
+    </section>
+
+    <!-- Extremos -->
+    <section class="space-y-2.5">
+      <span class="section-title block">{{ 'editor.connModal.multiplicities' | translate }}</span>
+      @for (end of ['source', 'target']; track end) {
+        <div class="rounded-lg border border-line bg-bg/40 p-2.5">
+          <div class="mb-1.5 flex items-center justify-between gap-2 text-[12px]">
+            <span class="text-fg-subtle">{{
+              (end === 'source' ? 'editor.relationPanel.source' : 'editor.relationPanel.target')
+                | translate
+            }}</span>
+            <span class="truncate font-medium text-fg">{{
+              end === 'source' ? sourceName() : targetName()
+            }}</span>
+          </div>
+          <div class="flex items-center gap-1">
+            @for (m of quickMultiplicities; track m) {
+              <button
+                type="button"
+                (click)="setMultiplicity($any(end), m)"
+                [class.uml-chip-active]="
+                  (end === 'source'
+                    ? connection().sourceMultiplicity
+                    : connection().targetMultiplicity) === m
+                "
+                class="uml-chip"
+              >
+                {{ m }}
+              </button>
+            }
+            <input
+              type="text"
+              [value]="
+                (end === 'source'
+                  ? connection().sourceMultiplicity
+                  : connection().targetMultiplicity) || ''
+              "
+              (input)="setMultiplicity($any(end), $any($event.target).value)"
+              placeholder="0..*"
+              class="input input-sm ml-auto !h-7 w-[64px] text-center font-mono"
+            />
+          </div>
+        </div>
+      }
+      <p class="flex items-start gap-1.5 text-[11px] leading-snug text-fg-subtle">
+        <ng-icon name="heroInformationCircle" class="mt-px shrink-0 text-xs"></ng-icon>
+        <span>{{ 'editor.relationPanel.multiplicityNote' | translate }}</span>
+      </p>
+    </section>
+
+    <!-- Nombre -->
+    <div>
+      <label class="label">{{ 'editor.connModal.name' | translate }}</label>
+      <input
+        type="text"
+        [value]="connection().name || ''"
+        (input)="setName($any($event.target).value)"
+        placeholder="posee, genera, pertenece a…"
+        class="input input-sm"
+      />
+    </div>
+
+    <!-- Clase de asociación -->
+    @if (connection().type === 'association') {
+      <section class="rounded-lg border border-dashed border-line-strong p-2.5">
+        <p class="mb-2 text-[12px] leading-snug text-fg-muted">
+          {{
+            (hasAssociationClass()
+              ? 'editor.relationPanel.assocClassActive'
+              : 'editor.relationPanel.assocClassHint'
+            ) | translate
+          }}
+        </p>
+        <button
+          type="button"
+          (click)="toggleAssociationClass.emit()"
+          class="btn btn-secondary btn-sm w-full"
+        >
+          <ng-icon name="heroSquare2Stack" class="text-sm"></ng-icon>
+          <span>{{
+            (hasAssociationClass()
+              ? 'editor.relationPanel.removeAssocClass'
+              : 'editor.relationPanel.addAssocClass'
+            ) | translate
+          }}</span>
+        </button>
+      </section>
+    }
+  </div>
+
+  <div class="flex shrink-0 items-center justify-between border-t border-line px-3.5 py-2.5">
+    <button
+      type="button"
+      (click)="deleted.emit()"
+      class="btn btn-ghost btn-sm text-fg-muted hover:!bg-red-500/10 hover:!text-red-300"
+    >
+      <ng-icon name="heroTrash" class="text-sm"></ng-icon>
+      <span>{{ 'editor.connModal.delete' | translate }}</span>
+    </button>
+    <button type="button" (click)="closed.emit()" class="btn btn-primary btn-sm">
+      {{ 'editor.classPanel.done' | translate }}
+    </button>
+  </div>
+</div>

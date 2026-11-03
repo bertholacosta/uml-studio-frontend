@@ -1,0 +1,134 @@
+<!-- Barra vertical de herramientas (estilo Miro): islas flotantes a la izquierda del lienzo -->
+<div class="absolute top-[76px] left-3 z-40 flex flex-col gap-2">
+  <!-- Asistente: muestra u oculta la barra del asistente -->
+  <div class="island p-1.5" data-tour="assistant-toggle">
+    <button
+      type="button"
+      (click)="toggleAssistant.emit()"
+      [attr.data-tip]="
+        (isAssistantOpen() ? 'toolbar.hideAssistant' : 'toolbar.showAssistant') | translate
+      "
+      [class.tool-btn-ai-active]="isAssistantOpen()"
+      class="tool-btn"
+    >
+      <ng-icon name="heroSparkles" class="text-[19px]"></ng-icon>
+    </button>
+  </div>
+
+  <!-- Herramientas -->
+  <div class="island flex flex-col gap-0.5 p-1.5" data-tour="toolbox">
+    <button
+      type="button"
+      (click)="relationToolChange.emit(null); isRelationMenuOpen.set(false)"
+      [attr.data-tip]="'toolbar.select' | translate"
+      [class.tool-btn-active]="relationTool() === null && !isRelationMenuOpen()"
+      class="tool-btn"
+    >
+      <ng-icon name="heroCursorArrowRays" class="text-[19px]"></ng-icon>
+    </button>
+
+    <button
+      type="button"
+      data-tour="add-class"
+      fExternalItem
+      [fData]="{ kind: 'class' }"
+      [fDisabled]="isReadOnly()"
+      (click)="addClass.emit()"
+      [disabled]="isReadOnly()"
+      [attr.data-tip]="'toolbar.classTool' | translate"
+      class="tool-btn"
+    >
+      <!-- Icono de clase UML: caja con tres compartimentos -->
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 20 20"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.6"
+        aria-hidden="true"
+      >
+        <rect x="2.5" y="3" width="15" height="14" rx="1" />
+        <line x1="2.5" y1="7.5" x2="17.5" y2="7.5" />
+        <line x1="2.5" y1="12" x2="17.5" y2="12" />
+      </svg>
+    </button>
+
+    <div class="relative">
+      <button
+        type="button"
+        data-tour="relation-tools"
+        (click)="isRelationMenuOpen.set(!isRelationMenuOpen())"
+        [disabled]="isReadOnly()"
+        [attr.data-tip]="isRelationMenuOpen() ? null : ('toolbar.relationTool' | translate)"
+        [class.tool-btn-active]="relationTool() !== null || isRelationMenuOpen()"
+        class="tool-btn"
+      >
+        <!-- Icono de relación: dos cajas unidas -->
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          aria-hidden="true"
+        >
+          <rect x="1.5" y="2.5" width="7" height="6" rx="1" />
+          <rect x="11.5" y="11.5" width="7" height="6" rx="1" />
+          <path d="M8.5 5.5h3.5v6" />
+        </svg>
+      </button>
+
+      @if (isRelationMenuOpen()) {
+        <div class="fixed inset-0 z-40" (click)="isRelationMenuOpen.set(false)"></div>
+        <div class="island absolute top-0 left-full z-50 ml-3 w-60 p-1.5">
+          <p
+            class="px-2 pt-1 pb-1.5 text-[11px] font-semibold tracking-wide text-fg-subtle uppercase"
+          >
+            {{ 'toolbar.relationships.title' | translate }}
+          </p>
+          @for (rel of relationTools; track rel.id) {
+            <button
+              type="button"
+              [attr.data-tour]="'relation-' + rel.id"
+              (click)="relationToolChange.emit(rel.id); isRelationMenuOpen.set(false)"
+              [class.uml-option-active]="relationTool() === rel.id"
+              class="uml-tool-item"
+            >
+              <app-relation-icon [type]="rel.id" />
+              <span class="truncate">{{ rel.labelKey | translate }}</span>
+            </button>
+          }
+          <p class="px-2 pt-1.5 pb-1 text-[11px] leading-snug text-fg-subtle">
+            {{ 'toolbar.relationHint' | translate }}
+          </p>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Deshacer / rehacer -->
+  @if (!isReadOnly()) {
+    <div class="island flex flex-col gap-0.5 p-1.5">
+      <button
+        type="button"
+        (click)="undo.emit()"
+        [disabled]="!canUndo()"
+        [attr.data-tip]="'toolbar.shortcuts.undo' | translate"
+        class="tool-btn"
+      >
+        <ng-icon name="heroArrowUturnLeft" class="text-[18px]"></ng-icon>
+      </button>
+      <button
+        type="button"
+        (click)="redo.emit()"
+        [disabled]="!canRedo()"
+        [attr.data-tip]="'toolbar.shortcuts.redo' | translate"
+        class="tool-btn"
+      >
+        <ng-icon name="heroArrowUturnRight" class="text-[18px]"></ng-icon>
+      </button>
+    </div>
+  }
+</div>

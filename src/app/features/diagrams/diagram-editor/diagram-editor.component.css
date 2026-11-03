@@ -1,0 +1,44 @@
+/* Los colores base del lienzo, nodos, líneas y marcadores viven en src/styles.css */
+
+/* =========================================================================
+   RESALTADO DE CONEXIONES Y RELACIONES
+   (solo la línea visible: el trazo de selección de Foblex debe seguir transparente)
+   ========================================================================= */
+
+::ng-deep f-flow f-connection.conn-highlighted {
+  z-index: 25 !important;
+}
+
+::ng-deep f-flow f-connection.conn-highlighted path[f-connection-path],
+::ng-deep f-flow f-connection.conn-highlighted .f-connection-path {
+  stroke: var(--uml-highlight) !important;
+  stroke-width: 2.4px !important;
+}
+
+::ng-deep f-flow f-connection.conn-highlighted polygon.uml-marker-hollow {
+  stroke: var(--uml-highlight) !important;
+  stroke-width: 2px !important;
+  fill: var(--uml-canvas-bg) !important;
+}
+
+::ng-deep f-flow f-connection.conn-highlighted polygon.uml-marker-filled {
+  fill: var(--uml-highlight) !important;
+  stroke: var(--uml-highlight) !important;
+}
+
+::ng-deep f-flow f-connection.conn-highlighted polyline.uml-marker-open {
+  stroke: var(--uml-highlight) !important;
+  stroke-width: 2.2px !important;
+}
+
+/* =========================================================================
+   ETIQUETAS DE MULTIPLICIDAD Y NOMBRE DE RELACIONES UML
+   ========================================================================= */
+
+::ng-deep f-flow .f-connection-content {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  pointer-events: all !important;
+}

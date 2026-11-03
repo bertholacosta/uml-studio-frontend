@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- UML Studio - isotipo: clase UML (nombre, atributos, operaciones) cuyas operaciones son el simbolo de codigo </> -->
+  <rect x="2.5" y="2.5" width="27" height="27" rx="3" stroke="#F2F0E8" stroke-width="2.0"/>
+  <path d="M2.5 9h27M2.5 15.5h27" stroke="#F2F0E8" stroke-width="2.0"/>
+  <path d="M11 5.75h10" stroke="#FF6B2C" stroke-width="2.0" stroke-linecap="round"/>
+  <path d="M6.5 12.25h9" stroke="#F2F0E8" stroke-width="1.6" stroke-linecap="round" opacity="0.55"/>
+  <path d="M11.5 19L8 22.5l3.5 3.5M20.5 19l3.5 3.5-3.5 3.5" stroke="#F2F0E8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M17.4 18.6l-2.8 7.8" stroke="#FF6B2C" stroke-width="2.2" stroke-linecap="round"/>
+</svg>

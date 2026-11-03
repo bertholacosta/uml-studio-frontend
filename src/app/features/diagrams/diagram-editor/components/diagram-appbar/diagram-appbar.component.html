@@ -1,0 +1,226 @@
+<!-- Isla superior izquierda: navegación, nombre del diagrama y archivo -->
+<div
+  class="island absolute top-3 left-3 z-40 flex h-12 max-w-[calc(50%-24px)] items-center gap-1 pr-1.5 pl-1.5"
+>
+  <a routerLink="/dashboard" [title]="'nav.home' | translate" class="btn btn-ghost btn-sm !px-1.5">
+    <app-brand-logo [size]="24" [showName]="false" />
+  </a>
+
+  <nav class="flex min-w-0 items-center gap-1.5 text-sm" aria-label="breadcrumb">
+    <a routerLink="/projects" class="hidden text-fg-muted hover:text-fg sm:inline">{{
+      'appbar.projects' | translate
+    }}</a>
+    <span class="hidden text-fg-subtle sm:inline">/</span>
+    <h1 class="truncate font-medium text-fg" [title]="diagramTitle()">{{ diagramTitle() }}</h1>
+  </nav>
+
+  <!-- Estado: cambios sin guardar (la conexión vive en «Compartir») -->
+  @if (hasUnsavedChanges()) {
+    <span
+      class="ml-1 h-2 w-2 shrink-0 rounded-full bg-amber-300"
+      [title]="'editor.statusbar.unsaved' | translate"
+    ></span>
+  }
+
+  @if (isReadOnly()) {
+    <span class="badge badge-warning ml-1.5 shrink-0">
+      <ng-icon name="heroEye" class="text-xs"></ng-icon>
+      {{ 'appbar.spectatorMode' | translate }}
+    </span>
+  }
+
+  <div class="mx-1 h-6 w-px shrink-0 bg-line"></div>
+
+  @if (diagramId() && !isReadOnly()) {
+    <button
+      type="button"
+      data-tour="save"
+      (click)="saveDiagram.emit()"
+      [disabled]="isSaving()"
+      [title]="'appbar.saveTooltip' | translate"
+      class="btn btn-ghost btn-sm btn-icon shrink-0"
+    >
+      @if (isSaving()) {
+        <span class="spinner !h-3.5 !w-3.5"></span>
+      } @else if (saveSuccessMessage()) {
+        <ng-icon name="heroCheck" class="text-base text-success"></ng-icon>
+      } @else {
+        <ng-icon name="heroCloudArrowUp" class="text-base"></ng-icon>
+      }
+    </button>
+  }
+
+  <!-- Exportar -->
+  <div class="relative shrink-0">
+    <button
+      type="button"
+      (click)="isExportDropdownOpen.set(!isExportDropdownOpen()); isImportDropdownOpen.set(false)"
+      [class.!bg-elevated]="isExportDropdownOpen()"
+      [title]="'appbar.export' | translate"
+      class="btn btn-ghost btn-sm btn-icon"
+    >
+      <ng-icon name="heroArrowDownTray" class="text-base"></ng-icon>
+    </button>
+
+    @if (isExportDropdownOpen()) {
+      <div class="fixed inset-0 z-40" (click)="isExportDropdownOpen.set(false)"></div>
+      <div class="menu left-0 mt-2 w-60">
+        <button
+          type="button"
+          (click)="exportBmp.emit(); isExportDropdownOpen.set(false)"
+          class="menu-item"
+        >
+          <ng-icon name="heroPhoto" class="text-base text-accent-fg"></ng-icon>
+          <span>{{ 'appbar.exportBmp' | translate }}</span>
+        </button>
+        <button
+          type="button"
+          (click)="exportXmi.emit(); isExportDropdownOpen.set(false)"
+          class="menu-item"
+        >
+          <ng-icon name="heroDocumentText" class="text-base text-sky-300"></ng-icon>
+          <span>{{ 'appbar.exportXmi' | translate }}</span>
+        </button>
+        <div class="my-1 h-px bg-line"></div>
+        <button
+          type="button"
+          (click)="exportJson.emit(); isExportDropdownOpen.set(false)"
+          class="menu-item"
+        >
+          <ng-icon name="heroDocumentText" class="text-base text-emerald-300"></ng-icon>
+          <span>{{ 'appbar.exportJson' | translate }}</span>
+        </button>
+        <button
+          type="button"
+          (click)="viewJson.emit(); isExportDropdownOpen.set(false)"
+          class="menu-item"
+        >
+          <ng-icon name="heroDocumentText" class="text-base text-fg-subtle"></ng-icon>
+          <span>JSON</span>
+        </button>
+      </div>
+    }
+  </div>
+
+  <!-- Importar -->
+  <div class="relative shrink-0">
+    <button
+      type="button"
+      (click)="isImportDropdownOpen.set(!isImportDropdownOpen()); isExportDropdownOpen.set(false)"
+      [class.!bg-elevated]="isImportDropdownOpen()"
+      [title]="'appbar.import' | translate"
+      class="btn btn-ghost btn-sm btn-icon"
+    >
+      <ng-icon name="heroArrowUpTray" class="text-base"></ng-icon>
+    </button>
+
+    @if (isImportDropdownOpen()) {
+      <div class="fixed inset-0 z-40" (click)="isImportDropdownOpen.set(false)"></div>
+      <div class="menu left-0 mt-2 w-60">
+        <button type="button" (click)="triggerFileInput()" class="menu-item">
+          <ng-icon name="heroArrowUpTray" class="text-base text-amber-300"></ng-icon>
+          <span>{{ 'appbar.importXmi' | translate }}</span>
+        </button>
+        <button
+          type="button"
+          (click)="openImportJson.emit(); isImportDropdownOpen.set(false)"
+          class="menu-item"
+        >
+          <ng-icon name="heroDocumentText" class="text-base text-fg-subtle"></ng-icon>
+          <span>JSON</span>
+        </button>
+      </div>
+    }
+    <input
+      #fileInput
+      type="file"
+      accept=".json,.xml,.xmi"
+      (change)="fileSelected.emit($event)"
+      class="hidden"
+    />
+  </div>
+</div>
+
+<!-- Isla superior derecha: colaboración, idioma, cuenta y generar código -->
+<div class="island absolute top-3 right-3 z-50 flex h-12 items-center gap-1.5 pr-1.5 pl-2">
+  <!-- Colaboración: quién está conectado + panel Compartir (estilo Miro) -->
+  <div class="flex items-center gap-1.5">
+    @if (otherCollaborators().length) {
+      <button
+        type="button"
+        (click)="isShareOpen.set(!isShareOpen())"
+        class="hidden items-center -space-x-1.5 md:flex"
+      >
+        @for (collab of otherCollaborators().slice(0, 4); track collab.userId) {
+          <span
+            class="grid h-7 w-7 place-items-center rounded-full border-2 border-surface text-[11px] font-semibold text-white select-none"
+            [style.backgroundColor]="collab.color"
+            [title]="collab.userName"
+          >
+            {{ collab.userName.charAt(0).toUpperCase() }}
+          </span>
+        }
+        @if (otherCollaborators().length > 4) {
+          <span
+            class="grid h-7 w-7 place-items-center rounded-full border-2 border-surface bg-elevated text-[10px] font-semibold text-fg"
+          >
+            +{{ otherCollaborators().length - 4 }}
+          </span>
+        }
+      </button>
+    }
+
+    <button
+      type="button"
+      data-tour="share"
+      (click)="isShareOpen.set(!isShareOpen())"
+      [class.!bg-elevated]="isShareOpen()"
+      class="btn btn-secondary btn-sm relative"
+    >
+      <ng-icon name="heroUserPlus" class="text-base"></ng-icon>
+      <span class="hidden sm:inline">{{ 'share.button' | translate }}</span>
+      @if (!collaborationService.isConnected()) {
+        <span
+          class="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-400 ring-2 ring-surface"
+          [title]="'editor.statusbar.disconnected' | translate"
+        ></span>
+      }
+    </button>
+
+    @if (isShareOpen()) {
+      <app-share-panel
+        [projectId]="projectId()"
+        [diagramTitle]="diagramTitle()"
+        (closed)="isShareOpen.set(false)"
+      />
+    }
+  </div>
+
+  <div class="mx-0.5 hidden h-6 w-px bg-line md:block"></div>
+
+  @if (authService.currentUser()) {
+    <button
+      type="button"
+      (click)="openProfile.emit()"
+      [title]="'appbar.profileTooltip' | translate"
+      class="btn btn-ghost btn-sm btn-icon"
+    >
+      <span
+        class="grid h-7 w-7 place-items-center rounded-full bg-overlay ring-1 ring-line-strong text-[11px] font-semibold text-white"
+      >
+        {{ authService.currentUser()?.fullName?.charAt(0)?.toUpperCase() }}
+      </span>
+    </button>
+  }
+
+  <button
+    type="button"
+    data-tour="generate"
+    (click)="openSpringBoot.emit()"
+    [title]="'appbar.generateTooltip' | translate"
+    class="btn btn-primary btn-sm ml-0.5"
+  >
+    <ng-icon name="heroCodeBracket" class="text-base"></ng-icon>
+    <span class="hidden sm:inline">{{ 'appbar.generateCode' | translate }}</span>
+  </button>
+</div>

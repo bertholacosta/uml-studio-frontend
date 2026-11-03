@@ -1,0 +1,645 @@
+<div class="relative flex h-screen w-screen overflow-hidden bg-bg text-fg select-none">
+  <!-- Área del tablero: a pantalla completa, o encogida a la izquierda cuando el asistente está acoplado (como Miro) -->
+  <div
+    class="relative min-w-0 flex-1 overflow-hidden"
+    [ngClass]="
+      isAiPanelOpen() && aiDock() === 'side' ? 'my-2 ml-2 rounded-2xl border border-line' : ''
+    "
+  >
+    <!-- 1. LIENZO A PANTALLA COMPLETA (estilo Miro: la interfaz flota encima en islas) -->
+    <div
+      #flowContainer
+      data-tour="canvas"
+      (mousemove)="onCanvasMouseMove($event)"
+      [class.uml-canvas-light]="canvasTheme() === 'light'"
+      [class.uml-relation-mode]="relationTool() !== null"
+      class="uml-canvas-container absolute inset-0 cursor-default overflow-hidden"
+    >
+      <!-- Aviso del modo relación: indica el siguiente clic -->
+      @if (relationTool()) {
+        <div
+          class="absolute top-[76px] left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full border border-accent/40 bg-surface/95 py-1.5 pr-1.5 pl-4 text-[13px] text-fg shadow-xl shadow-black/40 backdrop-blur"
+        >
+          <span class="relative flex h-2 w-2">
+            <span
+              class="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-70"
+            ></span>
+            <span class="relative inline-flex h-2 w-2 rounded-full bg-accent"></span>
+          </span>
+          <span>{{
+            (relationSourceId() ? 'toolbar.relationStepTarget' : 'toolbar.relationStepSource')
+              | translate
+          }}</span>
+          <button
+            type="button"
+            (click)="setRelationTool(null)"
+            class="btn btn-secondary btn-xs rounded-full"
+          >
+            {{ 'toolbar.cancelEsc' | translate }}
+          </button>
+        </div>
+      }
+
+      <!-- Cursores Remotos Colaborativos en Vivo -->
+      @for (cursor of collaborationService.remoteCursors(); track cursor.userId) {
+        <div
+          class="absolute pointer-events-none z-40 flex items-center gap-1 transition-all duration-75"
+          [style.left.px]="cursor.x"
+          [style.top.px]="cursor.y"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" class="drop-shadow-md">
+            <path
+              d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87a.5.5 0 0 0 .35-.85L6.35 2.86a.5.5 0 0 0-.85.35Z"
+              [attr.fill]="cursor.color"
+              stroke="white"
+              stroke-width="1.5"
+            />
+          </svg>
+          <span
+            class="rounded-md px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap text-white shadow-md"
+            [style.backgroundColor]="cursor.color"
+          >
+            {{ cursor.userName }}
+          </span>
+        </div>
+      }
+
+      <!-- FOBLEX FLOW INTERACTIVE CANVAS -->
+      <f-flow
+        fDraggable
+        (fLoaded)="onFlowLoaded()"
+        (fCreateConnection)="onConnectionCreated($event)"
+        (fReassignConnection)="onConnectionReassigned($event)"
+        (fCreateNode)="onPaletteDrop($event)"
+        (fSelectionChange)="onSelectionChange($event)"
+        class="w-full h-full block"
+      >
+        <f-background>
+          <f-rect-pattern [vSize]="gridSize" [hSize]="gridSize"></f-rect-pattern>
+        </f-background>
+        <f-selection-area></f-selection-area>
+
+        <f-canvas fZoom [fZoomDblClickStep]="0" (fCanvasChange)="onCanvasChange($event)">
+          <!-- CONEXIONES UML SEGÚN RELACIÓN -->
+          <ng-container ngProjectAs="[fConnections]">
+            @for (conn of connections(); track conn.id) {
+              <f-connection
+                [fConnectionId]="conn.id"
+                [fSourceId]="getRenderedEndpoint(conn, 'source')"
+                [fTargetId]="getRenderedEndpoint(conn, 'target')"
+                [fType]="'straight'"
+                [fBehavior]="'floating'"
+                [fRadius]="0"
+                [fSelectionDisabled]="conn.type === 'association_class'"
+                (dblclick)="openRelationPanel(conn, $event)"
+                [class]="'uml-relation-' + (conn.type || 'association')"
+                [class.conn-highlighted]="
+                  isConnectionSelected(conn.id) || editingConnId() === conn.id
+                "
+              >
+                <!-- Marcadores Visuales según el tipo de Relación UML 2.5 -->
+                @if (conn.type === 'generalization' || conn.type === 'realization') {
+                  <svg
+                    fMarker
+                    [width]="22"
+                    [height]="22"
+                    [refX]="21"
+                    [refY]="11"
+                    viewBox="0 0 22 22"
+                    markerUnits="userSpaceOnUse"
+                    type="end-all-states"
+                  >
+                    <polygon points="1,2 21,11 1,20" class="uml-marker-hollow" />
+                  </svg>
+                } @else if (conn.type === 'composition') {
+                  @if (isDiamondAtStart(conn)) {
+                    <svg
+                      fMarker
+                      [width]="28"
+                      [height]="16"
+                      [refX]="1"
+                      [refY]="8"
+                      viewBox="0 0 28 16"
+                      markerUnits="userSpaceOnUse"
+                      type="start-all-states"
+                    >
+                      <polygon points="1,8 14,1 27,8 14,15" class="uml-marker-filled" />
+                    </svg>
+                  } @else {
+                    <svg
+                      fMarker
+                      [width]="28"
+                      [height]="16"
+                      [refX]="27"
+                      [refY]="8"
+                      viewBox="0 0 28 16"
+                      markerUnits="userSpaceOnUse"
+                      type="end-all-states"
+                    >
+                      <polygon points="1,8 14,1 27,8 14,15" class="uml-marker-filled" />
+                    </svg>
+                  }
+                } @else if (conn.type === 'aggregation') {
+                  @if (isDiamondAtStart(conn)) {
+                    <svg
+                      fMarker
+                      [width]="28"
+                      [height]="16"
+                      [refX]="1"
+                      [refY]="8"
+                      viewBox="0 0 28 16"
+                      markerUnits="userSpaceOnUse"
+                      type="start-all-states"
+                    >
+                      <polygon points="1,8 14,1 27,8 14,15" class="uml-marker-hollow" />
+                    </svg>
+                  } @else {
+                    <svg
+                      fMarker
+                      [width]="28"
+                      [height]="16"
+                      [refX]="27"
+                      [refY]="8"
+                      viewBox="0 0 28 16"
+                      markerUnits="userSpaceOnUse"
+                      type="end-all-states"
+                    >
+                      <polygon points="1,8 14,1 27,8 14,15" class="uml-marker-hollow" />
+                    </svg>
+                  }
+                } @else if (conn.type === 'dependency') {
+                  <svg
+                    fMarker
+                    [width]="22"
+                    [height]="22"
+                    [refX]="20"
+                    [refY]="11"
+                    viewBox="0 0 22 22"
+                    markerUnits="userSpaceOnUse"
+                    type="end-all-states"
+                  >
+                    <polyline points="2,2 20,11 2,20" class="uml-marker-open" />
+                  </svg>
+                }
+
+                <!-- Multiplicidades junto a cada extremo y nombre en el centro -->
+                @if (conn.sourceMultiplicity) {
+                  <div
+                    fConnectionContent
+                    [position]="0.1"
+                    [offset]="-12"
+                    (dblclick)="openRelationPanel(conn, $event)"
+                    class="uml-multiplicity-badge"
+                  >
+                    {{ conn.sourceMultiplicity }}
+                  </div>
+                }
+
+                @if (conn.name && conn.type !== 'association_class') {
+                  <div
+                    fConnectionContent
+                    [position]="0.5"
+                    [offset]="-14"
+                    (dblclick)="openRelationPanel(conn, $event)"
+                    class="uml-relation-name-badge"
+                  >
+                    {{ conn.name }}
+                  </div>
+                }
+
+                @if (conn.targetMultiplicity) {
+                  <div
+                    fConnectionContent
+                    [position]="0.9"
+                    [offset]="-12"
+                    (dblclick)="openRelationPanel(conn, $event)"
+                    class="uml-multiplicity-badge"
+                  >
+                    {{ conn.targetMultiplicity }}
+                  </div>
+                }
+              </f-connection>
+            }
+          </ng-container>
+
+          <!-- Previsualización de la conexión mientras se arrastra desde un punto -->
+          <f-connection-for-create
+            [fType]="'straight'"
+            [fBehavior]="'floating'"
+            [class]="'uml-relation-' + (relationTool() || 'association')"
+          >
+          </f-connection-for-create>
+
+          <!-- NODOS DE CLASE UML -->
+          <ng-container ngProjectAs="[fNodes]">
+            @for (node of nodes(); track node.id) {
+              <div
+                fNode
+                fDragHandle
+                [fNodeId]="node.id"
+                [attr.data-tour-node]="node.id"
+                [fNodeDraggingDisabled]="
+                  node.isAnchor ||
+                  isReadOnly() ||
+                  isNodeLockedByOther(node.id) ||
+                  relationTool() !== null
+                "
+                [fNodeSelectionDisabled]="!!node.isAnchor"
+                [(fNodePosition)]="node.position"
+                (fNodePositionChange)="onNodePositionChange(node, $event)"
+                (dblclick)="relationTool() ? null : openClassPanel(node, $event)"
+                (click)="onNodeClickForRelation(node, $event)"
+                [ngClass]="{
+                  'uml-anchor-node w-0 h-0 opacity-0 pointer-events-none absolute': node.isAnchor,
+                  'uml-class-node font-sans select-none': !node.isAnchor,
+                  'uml-node-neighbor': !node.isAnchor && isNeighborNode(node.id),
+                  'uml-node-editing': editingNodeId() === node.id,
+                  'uml-node-relation-source': relationSourceId() === node.id,
+                  'cursor-move': !node.isAnchor && !isReadOnly() && !isNodeLockedByOther(node.id),
+                  'cursor-not-allowed': !node.isAnchor && isNodeLockedByOther(node.id),
+                }"
+              >
+                <!-- Contenido Nodo Ancla (punto medio de la relación con clase de asociación) -->
+                @if (node.isAnchor) {
+                  <div
+                    fConnector
+                    fConnectorType="source-target"
+                    [fConnectorId]="node.id"
+                    class="w-0 h-0"
+                  ></div>
+                }
+
+                <!-- Contenido Nodo de Clase Estándar -->
+                @else {
+                  <!-- BADGE DE BLOQUEO POR OTRO USUARIO -->
+                  @if (isNodeLockedByOther(node.id)) {
+                    <div
+                      class="absolute -top-3 left-2 z-50 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-white shadow-md select-none"
+                      [style.backgroundColor]="getNodeLock(node.id)?.color || '#EF4444'"
+                      [title]="'Editando actualmente por ' + getNodeLock(node.id)?.userName"
+                    >
+                      <ng-icon name="heroLockClosed" class="text-[10px]"></ng-icon>
+                      <span>{{ getNodeLock(node.id)?.userName }} (editando...)</span>
+                    </div>
+                  }
+
+                  <!-- BARRA FLOTANTE: EDITAR / ELIMINAR -->
+                  @if (
+                    selectedNodeId() === node.id &&
+                    editingNodeId() !== node.id &&
+                    !relationTool() &&
+                    !isReadOnly() &&
+                    !isNodeLockedByOther(node.id)
+                  ) {
+                    <div
+                      fDragBlocker
+                      class="uml-node-toolbar"
+                      (pointerdown)="$event.stopPropagation()"
+                      (dblclick)="$event.stopPropagation()"
+                    >
+                      <button
+                        type="button"
+                        (click)="openClassPanel(node, $event)"
+                        [title]="'editor.classPanel.edit' | translate"
+                        class="uml-node-toolbar-btn"
+                      >
+                        <ng-icon name="heroPencilSquare" class="text-sm"></ng-icon>
+                      </button>
+                      <button
+                        type="button"
+                        (click)="removeClass(node.id, $event)"
+                        [title]="'editor.classPanel.delete' | translate"
+                        class="uml-node-toolbar-btn hover:!text-red-300"
+                      >
+                        <ng-icon name="heroTrash" class="text-sm"></ng-icon>
+                      </button>
+                    </div>
+                  }
+
+                  <!-- PUNTOS DE CONEXIÓN (aparecen al pasar el ratón; se puede soltar en cualquier parte de la clase destino) -->
+                  @for (side of connectorSides; track side) {
+                    <div
+                      fConnector
+                      fConnectorType="source-target"
+                      [fConnectorId]="node.id + '_' + side"
+                      [fConnectorSelfConnectable]="false"
+                      [fConnectorDisabled]="isReadOnly() || isNodeLockedByOther(node.id)"
+                      [title]="'editor.connectHint' | translate"
+                      [class]="'uml-port uml-port-' + side"
+                    ></div>
+                  }
+
+                  <!-- CONECTOR DE LA CAJA COMPLETA: las líneas van de borde a borde, como en StarUML -->
+                  <div
+                    fConnector
+                    fConnectorType="source-target"
+                    [fConnectorId]="node.id + '__box'"
+                    [fConnectorSelfConnectable]="false"
+                    class="uml-box-connector"
+                  ></div>
+
+                  <!-- CAJA UML: NOMBRE / ATRIBUTOS / MÉTODOS
+                       (el ancho va aquí y no en el fNode: Foblex reescribe el atributo style del nodo) -->
+                  <div
+                    class="uml-class-box"
+                    [style.width.px]="getNodeWidth(node) - 4"
+                    [style.outline]="
+                      isNodeLockedByOther(node.id)
+                        ? '2px solid ' + (getNodeLock(node.id)?.color || '#EF4444')
+                        : null
+                    "
+                  >
+                    <div class="uml-class-header">
+                      @if (isNodeLockedByOther(node.id)) {
+                        <ng-icon
+                          name="heroLockClosed"
+                          class="shrink-0 text-xs text-red-400"
+                        ></ng-icon>
+                      }
+                      <span class="truncate">{{ node.name }}</span>
+                    </div>
+
+                    <div
+                      class="uml-class-compartment"
+                      [class.uml-class-compartment-empty]="!node.attributes.length"
+                    >
+                      @for (attr of node.attributes; track $index) {
+                        <div class="uml-class-row">
+                          <span>− {{ attr.name || '…' }}: {{ attr.type }}</span>
+                        </div>
+                      }
+                    </div>
+
+                    <div
+                      class="uml-class-compartment"
+                      [class.uml-class-compartment-empty]="!node.methods.length"
+                    >
+                      @for (m of node.methods; track $index) {
+                        <div class="uml-class-row">
+                          <span
+                            >+ {{ m.name || '…' }}({{ m.parameters || '' }}):
+                            {{ m.returnType || 'void' }}</span
+                          >
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </ng-container>
+        </f-canvas>
+      </f-flow>
+
+      <!-- PANEL FLOTANTE DE CLASE -->
+      @if (editingNode(); as editNode) {
+        <app-class-edit-panel
+          [node]="editNode"
+          [left]="classPanelPos().left"
+          [top]="classPanelPos().top"
+          [predefinedTypes]="predefinedTypes"
+          [predefinedReturnTypes]="predefinedReturnTypes"
+          (nodeChange)="onClassPanelChange($event)"
+          (deleted)="removeClass(editNode.id)"
+          (closed)="closeClassPanel()"
+        >
+        </app-class-edit-panel>
+      }
+
+      <!-- PANEL FLOTANTE DE RELACIÓN -->
+      @if (editingConnection(); as editConn) {
+        <app-relation-edit-panel
+          [connection]="editConn"
+          [sourceName]="getNodeName(editConn.sourceNodeId)"
+          [targetName]="getNodeName(editConn.targetNodeId)"
+          [left]="relationPanelPos().left"
+          [top]="relationPanelPos().top"
+          (connectionChange)="onRelationPanelChange($event)"
+          (swap)="swapConnectionDirection(editConn.id)"
+          (toggleAssociationClass)="toggleAssociationClass(editConn.id)"
+          (deleted)="removeConnection(editConn.id)"
+          (closed)="closeRelationPanel()"
+        >
+        </app-relation-edit-panel>
+      }
+    </div>
+
+    <!-- 2. ISLAS SUPERIORES: archivo (izquierda) y colaboración / cuenta (derecha) -->
+    <app-diagram-appbar
+      [diagramTitle]="currentDiagramName()"
+      [diagramId]="currentDiagramId()"
+      [projectId]="currentProjectId()"
+      [isSaving]="diagramService.isSaving()"
+      [saveSuccessMessage]="saveSuccessMessage()"
+      [isReadOnly]="isReadOnly()"
+      [hasUnsavedChanges]="hasUnsavedChanges()"
+      (saveDiagram)="saveToBackend()"
+      (exportBmp)="downloadBmpFile()"
+      (exportXmi)="downloadXmiFile()"
+      (exportJson)="downloadJsonFile()"
+      (viewJson)="openExportModal()"
+      (fileSelected)="onFileSelected($event)"
+      (openImportJson)="openImportModal()"
+      (openSpringBoot)="openCodeGenerator()"
+      (openProfile)="openProfileModal()"
+    >
+    </app-diagram-appbar>
+
+    <!-- 3. BARRA VERTICAL DE HERRAMIENTAS (izquierda) -->
+    <app-diagram-toolbox
+      [isReadOnly]="isReadOnly()"
+      [relationTool]="relationTool()"
+      [isAssistantOpen]="isAiPanelOpen()"
+      [canUndo]="canUndo()"
+      [canRedo]="canRedo()"
+      (relationToolChange)="setRelationTool($event)"
+      (addClass)="addClass()"
+      (toggleAssistant)="isAiPanelOpen.set(!isAiPanelOpen())"
+      (undo)="undo()"
+      (redo)="redo()"
+    >
+    </app-diagram-toolbox>
+
+    <!-- 4. ZOOM Y AYUDA (abajo a la derecha) -->
+    <div class="island absolute right-3 bottom-4 z-40 flex items-center gap-0.5 p-1.5">
+      <button
+        type="button"
+        (click)="fitView()"
+        [attr.data-tip-up]="'toolbar.canvas.fitView' | translate"
+        class="tool-btn"
+      >
+        <ng-icon name="heroArrowsPointingOut" class="text-[18px]"></ng-icon>
+      </button>
+      <button
+        type="button"
+        (click)="zoomOut()"
+        [attr.data-tip-up]="'toolbar.canvas.zoomOut' | translate"
+        class="tool-btn"
+      >
+        <ng-icon name="heroMinus" class="text-[18px]"></ng-icon>
+      </button>
+      <button
+        type="button"
+        (click)="resetView()"
+        [attr.data-tip-up]="'toolbar.canvas.resetZoom' | translate"
+        class="tool-btn !w-14 font-mono text-[13px]"
+      >
+        {{ zoomLevel() }}%
+      </button>
+      <button
+        type="button"
+        (click)="zoomIn()"
+        [attr.data-tip-up]="'toolbar.canvas.zoomIn' | translate"
+        class="tool-btn"
+      >
+        <ng-icon name="heroPlus" class="text-[18px]"></ng-icon>
+      </button>
+
+      <div class="relative">
+        <button
+          type="button"
+          (click)="isHelpMenuOpen.set(!isHelpMenuOpen())"
+          [attr.data-tip-up]="isHelpMenuOpen() ? null : ('toolbar.help' | translate)"
+          [class.tool-btn-active]="isHelpMenuOpen()"
+          class="tool-btn"
+        >
+          <ng-icon name="heroQuestionMarkCircle" class="text-[19px]"></ng-icon>
+        </button>
+
+        @if (isHelpMenuOpen()) {
+          <div class="fixed inset-0 z-40" (click)="isHelpMenuOpen.set(false)"></div>
+          <div class="island absolute right-0 bottom-full z-50 mb-3 w-72 p-3">
+            <span class="section-title mb-2 block">{{ 'toolbar.canvasTheme' | translate }}</span>
+            <div class="segmented w-full">
+              <button
+                type="button"
+                (click)="setCanvasTheme('light')"
+                [class.segmented-item-active]="canvasTheme() === 'light'"
+                class="segmented-item flex-1 justify-center"
+              >
+                <ng-icon name="heroSun" class="text-sm"></ng-icon>
+                {{ 'toolbar.canvasLight' | translate }}
+              </button>
+              <button
+                type="button"
+                (click)="setCanvasTheme('dark')"
+                [class.segmented-item-active]="canvasTheme() === 'dark'"
+                class="segmented-item flex-1 justify-center"
+              >
+                <ng-icon name="heroMoon" class="text-sm"></ng-icon>
+                {{ 'toolbar.canvasDark' | translate }}
+              </button>
+            </div>
+
+            <span class="section-title mt-4 mb-2 block">{{
+              'toolbar.shortcutsTitle' | translate
+            }}</span>
+            <dl class="space-y-1.5 text-[12px]">
+              @for (s of shortcuts; track s.labelKey) {
+                <div class="flex items-center justify-between gap-2">
+                  <dt class="text-fg-muted">{{ s.labelKey | translate }}</dt>
+                  <dd class="shrink-0">
+                    <kbd class="uml-kbd">{{ s.keysKey ? (s.keysKey | translate) : s.keys }}</kbd>
+                  </dd>
+                </div>
+              }
+            </dl>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. ASISTENTE (barra abajo al centro o columna acoplada a la derecha; se muestra u oculta desde la barra de herramientas) -->
+  <app-ai-assistant-panel
+    [isOpen]="isAiPanelOpen()"
+    [diagramId]="currentDiagramId()"
+    [currentNodes]="nodes()"
+    [currentConnections]="connections()"
+    [canEdit]="!isReadOnly()"
+    [dock]="aiDock()"
+    (dockChange)="setAiDock($event)"
+    (closePanel)="isAiPanelOpen.set(false)"
+    (applyMutation)="onAiMutation($event)"
+  >
+  </app-ai-assistant-panel>
+
+  <!-- 6. MODAL PERFIL DE USUARIO -->
+  <app-user-profile-modal [isOpen]="isProfileModalOpen()" (close)="isProfileModalOpen.set(false)">
+  </app-user-profile-modal>
+
+  <!-- 7. MODAL: GENERADOR SPRING BOOT 4 + FLYWAY -->
+  <!-- El generador (con highlight.js) se descarga la primera vez que se abre -->
+  @defer (when showSpringBootModal()) {
+    <app-spring-boot-modal
+      [isOpen]="showSpringBootModal()"
+      [diagramId]="currentDiagramId()"
+      [diagramName]="currentDiagramName()"
+      [nodes]="nodes()"
+      [connections]="connections()"
+      (closeModal)="showSpringBootModal.set(false)"
+    >
+    </app-spring-boot-modal>
+  }
+
+  <!-- 8. Modal JSON (interoperabilidad) -->
+  @if (showJsonModal()) {
+    <div class="modal-backdrop" (click)="showJsonModal.set(false)">
+      <div
+        class="modal max-w-2xl"
+        (click)="$event.stopPropagation()"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div class="modal-header">
+          <div class="min-w-0">
+            <h2 class="text-base font-semibold">
+              {{
+                jsonModalMode() === 'export'
+                  ? ('editor.jsonModal.exportTitle' | translate)
+                  : ('editor.jsonModal.importTitle' | translate)
+              }}
+            </h2>
+            <p class="mt-0.5 text-sm text-fg-muted">
+              {{
+                jsonModalMode() === 'export'
+                  ? ('editor.jsonModal.exportDesc' | translate)
+                  : ('editor.jsonModal.importDesc' | translate)
+              }}
+            </p>
+          </div>
+          <button type="button" (click)="showJsonModal.set(false)" class="btn btn-ghost btn-icon">
+            <ng-icon name="heroXMark" class="text-lg"></ng-icon>
+          </button>
+        </div>
+
+        <div class="px-5 py-5">
+          <textarea
+            [(ngModel)]="jsonContent"
+            rows="16"
+            spellcheck="false"
+            class="input resize-none !bg-bg font-mono text-xs leading-relaxed text-emerald-300"
+            [placeholder]="'editor.jsonModal.placeholder' | translate"
+          ></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" (click)="showJsonModal.set(false)" class="btn btn-secondary">
+            {{ 'common.close' | translate }}
+          </button>
+          @if (jsonModalMode() === 'export') {
+            <button type="button" (click)="copyJsonToClipboard()" class="btn btn-primary">
+              <ng-icon name="heroClipboardDocument" class="text-base"></ng-icon>
+              {{ 'editor.jsonModal.copy' | translate }}
+            </button>
+          } @else {
+            <button type="button" (click)="applyImportedJson()" class="btn btn-primary">
+              <ng-icon name="heroCheck" class="text-base"></ng-icon>
+              {{ 'editor.jsonModal.apply' | translate }}
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  }
+</div>

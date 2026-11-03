@@ -1,0 +1,1185 @@
+/* =========================================================================
+   UML Studio — Sistema de diseño «plano de ingeniería»
+   Grafito cálido, texto color papel, líneas finas de dibujo técnico,
+   acento naranja señal, IBM Plex (Sans/Mono) e Instrument Serif para énfasis.
+   ========================================================================= */
+
+@import 'tailwindcss';
+@import 'highlight.js/styles/github-dark.css';
+
+/* La app es solo oscura: la variante dark: queda activa siempre vía <html class="dark"> */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Instrument Serif', ui-serif, Georgia, serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  /* Esquinas discretas, como piezas de un plano (rounded-full se mantiene para avatares) */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 5px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+  --radius-2xl: 10px;
+  --radius-3xl: 12px;
+
+  /* Superficies: grafito cálido */
+  --color-bg: #0c0d0c;
+  --color-surface: #121412;
+  --color-elevated: #181b19;
+  --color-overlay: #202421;
+
+  /* Líneas de dibujo técnico */
+  --color-line: #262a27;
+  --color-line-strong: #3f4541;
+
+  /* Texto color papel */
+  --color-fg: #f2f0e8;
+  --color-fg-muted: #aeb1a8;
+  --color-fg-subtle: #7d8279;
+
+  /* Acento naranja señal */
+  --color-accent: #ff6b2c;
+  --color-accent-hover: #ff8148;
+  --color-accent-soft: #ff6b2c1a;
+  --color-accent-fg: #ffa476;
+  --color-ink: #1a0d06;
+
+  /* Estados */
+  --color-success: #6fcf97;
+  --color-warning: #f2c14e;
+  --color-danger: #ef6461;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Base                                                                       */
+/* ------------------------------------------------------------------------- */
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-bg font-sans text-fg;
+  }
+
+  ::selection {
+    background: #ff6b2c55;
+    color: #fff;
+  }
+
+  :focus-visible {
+    outline: 1px solid var(--color-accent-fg);
+    outline-offset: 2px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-line);
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-line-strong);
+    background-clip: padding-box;
+  }
+}
+
+/* ------------------------------------------------------------------------- */
+/* Componentes reutilizables                                                  */
+/* ------------------------------------------------------------------------- */
+
+@layer components {
+  /* Tipografía */
+  .display {
+    @apply font-display font-light tracking-[-0.025em] text-fg;
+  }
+  /* Palabra destacada: serif en cursiva con el color de acento */
+  .accent-serif {
+    @apply font-serif font-normal tracking-normal text-accent italic;
+  }
+  .eyebrow {
+    @apply font-mono text-[11px] font-medium tracking-[0.08em] text-fg-subtle uppercase;
+  }
+
+  /* Botones: rectos; principal blanco sobre negro */
+  .btn {
+    @apply inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-sm px-3.5 text-sm font-medium whitespace-nowrap transition-colors select-none disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-lg {
+    @apply h-12 px-6 text-base font-normal;
+  }
+  .btn-sm {
+    @apply h-8 gap-1.5 px-3 text-[13px];
+  }
+  .btn-xs {
+    @apply h-7 gap-1 px-2 text-xs;
+  }
+  .btn-icon {
+    @apply h-8 w-8 px-0;
+  }
+  .btn-primary {
+    @apply bg-accent font-semibold text-ink hover:bg-accent-hover;
+  }
+  .btn-secondary {
+    @apply border border-line-strong bg-transparent text-fg hover:border-fg hover:bg-white/5;
+  }
+  .btn-outline {
+    @apply border border-fg bg-transparent text-fg hover:bg-fg hover:text-bg;
+  }
+  .btn-ghost {
+    @apply text-fg-muted hover:bg-white/5 hover:text-fg;
+  }
+  .btn-accent {
+    @apply bg-accent text-ink hover:bg-accent-hover;
+  }
+  .btn-danger {
+    @apply border border-danger/40 bg-transparent text-danger hover:bg-danger/10;
+  }
+  .btn-success {
+    @apply bg-success text-bg hover:brightness-110;
+  }
+
+  /* Formularios */
+  .label {
+    @apply mb-2 block font-mono text-[11px] font-medium tracking-[0.06em] text-fg-subtle uppercase;
+  }
+  .input {
+    @apply h-10 w-full rounded-sm border border-line bg-bg px-3 text-sm text-fg transition-colors outline-none placeholder:text-fg-subtle/70 hover:border-line-strong focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-60;
+  }
+  .input-sm {
+    @apply h-8 px-2.5 text-[13px];
+  }
+  textarea.input {
+    @apply h-auto py-2.5;
+  }
+  select.input {
+    @apply cursor-pointer pr-8;
+  }
+  .input-error {
+    @apply border-danger/60 focus:border-danger;
+  }
+  .field-error {
+    @apply mt-1.5 text-xs text-danger;
+  }
+
+  /* Contenedores */
+  .card {
+    @apply rounded-lg border border-line bg-surface;
+  }
+  .panel-header {
+    @apply flex items-center justify-between gap-2 border-b border-line px-4 py-3;
+  }
+  .section-title {
+    @apply font-mono text-[11px] font-medium tracking-[0.08em] text-fg-subtle uppercase;
+  }
+
+  /* Etiquetas */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-xs border border-line px-1.5 py-0.5 font-mono text-[10.5px] font-medium tracking-[0.02em] text-fg-muted;
+  }
+  .badge-accent {
+    @apply border-accent-fg/40 bg-transparent text-accent-fg;
+  }
+  .badge-success {
+    @apply border-success/40 bg-transparent text-success;
+  }
+  .badge-warning {
+    @apply border-warning/40 bg-transparent text-warning;
+  }
+  .badge-danger {
+    @apply border-danger/40 bg-transparent text-danger;
+  }
+
+  .kbd {
+    @apply inline-flex h-5 min-w-5 items-center justify-center rounded-xs border border-line px-1 font-mono text-[10px] text-fg-muted;
+  }
+
+  /* Alertas */
+  .alert {
+    @apply flex items-start gap-2.5 rounded-sm border px-3 py-2.5 text-sm;
+  }
+  .alert-error {
+    @apply border-danger/40 bg-danger/5 text-[#ffb3b5];
+  }
+  .alert-success {
+    @apply border-success/40 bg-success/5 text-[#9ff0d6];
+  }
+  .alert-info {
+    @apply border-accent-fg/40 bg-accent-soft text-accent-fg;
+  }
+
+  /* Modales */
+  .modal-backdrop {
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4;
+  }
+  .modal {
+    @apply flex max-h-[90vh] w-full flex-col overflow-hidden rounded-xl border border-line-strong bg-surface shadow-2xl shadow-black;
+  }
+  .modal-header {
+    @apply flex items-center justify-between gap-3 border-b border-line px-6 py-5;
+  }
+  .modal-footer {
+    @apply flex items-center justify-end gap-2 border-t border-line px-6 py-4;
+  }
+
+  /* Control segmentado */
+  .segmented {
+    @apply inline-flex items-center overflow-hidden rounded-sm border border-line;
+  }
+  .segmented-item {
+    @apply inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 border-r border-line px-3 text-xs font-medium whitespace-nowrap text-fg-muted transition-colors last:border-r-0 hover:bg-white/5 hover:text-fg;
+  }
+  .segmented-item-active {
+    @apply bg-fg text-bg hover:bg-fg hover:text-bg;
+  }
+
+  /* Menús desplegables */
+  .menu {
+    @apply absolute z-50 min-w-48 overflow-hidden rounded-lg border border-line-strong bg-surface py-1 shadow-2xl shadow-black;
+  }
+  .menu-item {
+    @apply flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-left text-[13px] text-fg-muted transition-colors hover:bg-white/5 hover:text-fg;
+  }
+
+  .spinner {
+    @apply inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent;
+  }
+
+  /* Rejilla de líneas finas (fondos de secciones) */
+  .dot-grid,
+  .line-grid {
+    background-image:
+      linear-gradient(to right, rgb(242 240 232 / 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(242 240 232 / 0.06) 1px, transparent 1px),
+      linear-gradient(to right, rgb(242 240 232 / 0.025) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(242 240 232 / 0.025) 1px, transparent 1px);
+    background-size:
+      120px 120px,
+      120px 120px,
+      24px 24px,
+      24px 24px;
+  }
+
+  /* Resplandor cálido superior, como luz sobre la mesa de dibujo */
+  .glow-top {
+    background-image: radial-gradient(
+      55% 90% at 25% 0%,
+      rgb(255 107 44 / 0.13) 0%,
+      transparent 70%
+    );
+  }
+
+  /* Marcas de esquina de plano para tarjetas destacadas */
+  .crop-marks {
+    position: relative;
+  }
+  .crop-marks::before,
+  .crop-marks::after {
+    content: '';
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-color: var(--color-accent);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+  }
+  .crop-marks::before {
+    top: -1px;
+    left: -1px;
+    border-top: 1px solid;
+    border-left: 1px solid;
+  }
+  .crop-marks::after {
+    right: -1px;
+    bottom: -1px;
+    border-right: 1px solid;
+    border-bottom: 1px solid;
+  }
+  .crop-marks:hover::before,
+  .crop-marks:hover::after {
+    opacity: 1;
+  }
+}
+
+/* =========================================================================
+   Lienzo UML (Foblex Flow)
+   ========================================================================= */
+
+:root {
+  --ff-connection-drag-handle-stroke: transparent;
+  --ff-connection-drag-handle-fill: transparent;
+  --ff-node-padding: 0px !important;
+  --ff-node-border-radius: 4px !important;
+  --ff-node-border-color: transparent !important;
+  --ff-node-background-color: #121412 !important;
+  --ff-node-shadow: none !important;
+  --ff-canvas-background-color: transparent !important;
+  --ff-flow-background-color: #0c0d0c !important;
+  --ff-color-surface-canvas: transparent !important;
+  --ff-color-surface-page: #0c0d0c !important;
+
+  /* Colores de trazado UML (lienzo oscuro; el claro los redefine en .uml-canvas-light) */
+  --uml-canvas-bg: #0c0d0c;
+  --uml-line: #ffffff;
+  --uml-node-bg: #14171b;
+  --uml-node-border: #ffffff;
+  --uml-node-fg: #ffffff;
+  --uml-highlight: #ff8148;
+  --uml-grid: rgb(242 240 232 / 0.05);
+}
+
+/* Lienzo claro: es el único lugar de la app con modo claro */
+.uml-canvas-container.uml-canvas-light {
+  --uml-canvas-bg: #ffffff;
+  --uml-line: #1a1a1a;
+  --uml-node-bg: #ffffff;
+  --uml-node-border: #1a1a1a;
+  --uml-node-fg: #1a1a1a;
+  --uml-highlight: #ff6b2c;
+  --uml-grid: rgb(0 0 0 / 0.09);
+}
+
+f-flow .f-canvas,
+f-flow f-canvas,
+.f-canvas {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+}
+
+/* La cuadrícula la dibuja <f-background> para que se mueva y escale con el lienzo */
+.uml-canvas-container,
+f-flow {
+  background-color: var(--uml-canvas-bg) !important;
+  --ff-background-line-color: var(--uml-grid);
+  --ff-connection-content-color: var(--uml-line);
+  --ff-selection-area-color: rgb(255 107 44 / 0.08);
+  --ff-selection-area-border-color: rgb(255 107 44 / 0.6);
+}
+
+/* Nodos de clase */
+f-flow .f-node {
+  padding: 0 !important;
+  border-radius: 4px !important;
+  overflow: hidden;
+  background-color: var(--uml-node-bg) !important;
+  border: 1px solid var(--uml-node-border) !important;
+  box-shadow: none !important;
+  box-sizing: border-box !important;
+}
+
+f-flow .f-node.f-selected,
+f-flow .f-node:focus-within {
+  border-color: var(--uml-highlight) !important;
+  box-shadow: 0 0 0 1px var(--uml-highlight) !important;
+}
+
+f-flow .f-connector-source-target,
+f-flow .f-connector-source,
+f-flow .f-connector-target,
+f-flow .f-connector-connected,
+f-flow .f-node-output-connected,
+f-flow .f-node-input-connected,
+f-flow .f-connector-connectable {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+/* Quitar círculo (drag handle) en el extremo de las conexiones */
+f-flow circle,
+f-connection circle,
+f-flow .f-connection-drag-handle,
+f-flow circle[f-connection-drag-handle-end],
+f-flow circle[f-connection-drag-handle-start],
+f-flow circle.f-connection-drag-handle {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  stroke: transparent !important;
+  fill: none !important;
+  pointer-events: none !important;
+}
+
+/* Badges de multiplicidad y nombre de relación */
+.uml-multiplicity-badge,
+.uml-relation-name-badge {
+  background-color: transparent;
+  color: var(--uml-line);
+  border: none;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 3px;
+  border-radius: 0;
+  user-select: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.uml-multiplicity-badge {
+  font-weight: 500;
+}
+
+.uml-relation-name-badge {
+  font-weight: 500;
+  font-style: italic;
+}
+
+.uml-multiplicity-badge:hover,
+.uml-relation-name-badge:hover {
+  color: var(--uml-highlight);
+}
+
+/* Ocultar flecha nativa de datalist para evitar que tape el texto del tipo */
+f-flow input::-webkit-calendar-picker-indicator {
+  display: none !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Líneas de conexión */
+f-flow f-connection path,
+f-flow f-connection-for-create path,
+f-flow .f-connection path,
+f-flow path[f-connection-path],
+f-flow .f-connection-path {
+  fill: none !important;
+  stroke: var(--uml-line) !important;
+  stroke-width: 2px !important;
+  stroke-linejoin: miter !important;
+}
+
+/* Trazo invisible que Foblex usa para detectar el clic: ancho para acertar fácil, sin tapar las discontinuas */
+f-flow f-connection path.f-connection-selection,
+f-flow .f-connection path.f-connection-selection {
+  stroke: transparent !important;
+  stroke-width: 14px !important;
+  stroke-dasharray: none !important;
+}
+
+f-flow f-connection.uml-relation-realization path[f-connection-path],
+f-flow f-connection-for-create.uml-relation-realization path[f-connection-path],
+f-flow .uml-relation-realization path[f-connection-path],
+f-flow f-connection.uml-relation-dependency path[f-connection-path],
+f-flow f-connection-for-create.uml-relation-dependency path[f-connection-path],
+f-flow .uml-relation-dependency path[f-connection-path],
+f-flow f-connection.uml-relation-association_class path[f-connection-path],
+f-flow f-connection-for-create.uml-relation-association_class path[f-connection-path],
+f-flow .uml-relation-association_class path[f-connection-path] {
+  stroke-dasharray: 6 4 !important;
+}
+
+f-flow f-connection.uml-relation-association path[f-connection-path],
+f-flow f-connection.uml-relation-generalization path[f-connection-path],
+f-flow f-connection.uml-relation-composition path[f-connection-path],
+f-flow f-connection.uml-relation-aggregation path[f-connection-path] {
+  stroke-dasharray: none !important;
+}
+
+/* Forzar que los marcadores SVG no se recorten */
+f-flow marker,
+f-flow svg[fMarker],
+f-flow .f-marker {
+  overflow: visible !important;
+}
+
+/* Marcador hueco (generalización, agregación) */
+f-flow svg marker polygon.uml-marker-hollow,
+f-flow svg defs marker polygon.uml-marker-hollow,
+f-flow marker polygon.uml-marker-hollow,
+f-flow .f-marker polygon.uml-marker-hollow,
+f-flow .uml-marker-hollow,
+polygon.uml-marker-hollow,
+path.uml-marker-hollow {
+  fill: var(--uml-canvas-bg) !important;
+  stroke: var(--uml-line) !important;
+  stroke-width: 2px !important;
+}
+
+/* Marcador sólido (composición) */
+f-flow svg marker polygon.uml-marker-filled,
+f-flow svg defs marker polygon.uml-marker-filled,
+f-flow marker polygon.uml-marker-filled,
+f-flow .f-marker polygon.uml-marker-filled,
+f-flow .uml-marker-filled,
+polygon.uml-marker-filled,
+path.uml-marker-filled {
+  fill: var(--uml-line) !important;
+  stroke: var(--uml-line) !important;
+  stroke-width: 2px !important;
+}
+
+/* Marcador abierto (dependencia) */
+f-flow svg marker polyline.uml-marker-open,
+f-flow svg defs marker polyline.uml-marker-open,
+f-flow marker polyline.uml-marker-open,
+f-flow .f-marker polyline.uml-marker-open,
+f-flow .uml-marker-open,
+polyline.uml-marker-open,
+path.uml-marker-open {
+  fill: none !important;
+  stroke: var(--uml-line) !important;
+  stroke-width: 2px !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+
+/* =========================================================================
+   Diagramador de clases estilo Apollon
+   ========================================================================= */
+
+/* Caja de clase: el nodo deja ver la barra flotante y los puntos fuera de su borde */
+f-flow .f-node.uml-class-node {
+  width: max-content !important;
+  min-width: 0 !important;
+  overflow: visible !important;
+  border-width: 2px !important;
+  border-radius: 0 !important;
+  color: var(--uml-node-fg);
+  transition:
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
+}
+
+f-flow .f-node.uml-class-node.uml-node-neighbor:not(.f-selected) {
+  border-color: rgb(255 129 72 / 0.55) !important;
+}
+
+f-flow .f-node.uml-class-node.uml-node-editing {
+  border-color: var(--uml-highlight) !important;
+  box-shadow: 0 0 0 3px rgb(255 129 72 / 0.18) !important;
+}
+
+/* Ancla de la clase de asociación: un punto exacto en el medio de la relación */
+f-flow .f-node.uml-anchor-node {
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+f-flow .f-node.uml-anchor-node .f-connector {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  border: none !important;
+  transform: none !important;
+}
+
+.uml-class-box {
+  overflow: hidden;
+}
+
+.uml-class-header {
+  display: flex;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 12px;
+  border-bottom: 2px solid var(--uml-node-border);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.uml-class-compartment {
+  padding: 0 12px;
+}
+
+.uml-class-compartment + .uml-class-compartment {
+  border-top: 2px solid var(--uml-node-border);
+}
+
+.uml-class-compartment-empty {
+  box-sizing: content-box;
+  height: 12px;
+  padding: 0;
+}
+
+.uml-class-row {
+  display: flex;
+  height: 28px;
+  align-items: center;
+  gap: 4px;
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+/* Puntos de conexión: aparecen al pasar sobre la clase o mientras se arrastra una relación */
+f-flow .uml-port {
+  position: absolute;
+  z-index: 50;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px !important;
+  border: 2px solid var(--uml-canvas-bg) !important;
+  background: var(--color-accent) !important;
+  cursor: crosshair;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.6);
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease;
+}
+
+f-flow .uml-port::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 9999px;
+}
+
+f-flow .uml-port-top {
+  left: 50%;
+  top: 0;
+}
+f-flow .uml-port-right {
+  left: 100%;
+  top: 50%;
+}
+f-flow .uml-port-bottom {
+  left: 50%;
+  top: 100%;
+}
+f-flow .uml-port-left {
+  left: 0;
+  top: 50%;
+}
+
+f-flow .f-node.uml-class-node:hover .uml-port,
+f-flow.f-connections-dragging .f-node.uml-class-node .uml-port {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+f-flow .uml-port:hover {
+  transform: translate(-50%, -50%) scale(1.3) !important;
+}
+
+/* Conector que ocupa toda la caja: las líneas se trazan de borde a borde (no recibe el ratón) */
+f-flow .uml-box-connector {
+  position: absolute !important;
+  inset: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  transform: none !important;
+  pointer-events: none !important;
+}
+
+/* Modo relación (herramienta elegida en la paleta): clic en origen y destino */
+.uml-relation-mode f-flow .f-node.uml-class-node {
+  cursor: crosshair !important;
+}
+
+.uml-relation-mode f-flow .f-node.uml-class-node:hover {
+  border-color: var(--uml-highlight) !important;
+}
+
+f-flow .f-node.uml-class-node.uml-node-relation-source {
+  border-color: var(--uml-highlight) !important;
+  box-shadow: 0 0 0 4px rgb(255 107 44 / 0.25) !important;
+}
+
+/* Clase destino resaltada mientras se arrastra una relación */
+f-flow.f-connections-dragging .f-node.uml-class-node:hover {
+  border-color: var(--uml-highlight) !important;
+}
+
+/* Barra flotante sobre la clase seleccionada */
+.uml-node-toolbar {
+  position: absolute;
+  top: -40px;
+  right: 0;
+  z-index: 60;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 8px;
+  background: var(--color-surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+  cursor: default;
+}
+
+.uml-node-toolbar-btn {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  color: var(--color-fg-muted);
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.uml-node-toolbar-btn + .uml-node-toolbar-btn {
+  border-left: 1px solid var(--color-line);
+}
+
+.uml-node-toolbar-btn:hover {
+  background: rgb(255 255 255 / 0.05);
+  color: var(--color-fg);
+}
+
+/* Relación seleccionada */
+f-flow f-connection.f-selected path[f-connection-path],
+f-flow f-connection.f-selected .f-connection-path {
+  stroke: var(--uml-highlight) !important;
+  stroke-width: 2.2px !important;
+}
+
+/* Paneles flotantes de edición */
+.uml-floating-panel {
+  max-height: calc(100% - 16px);
+  overflow: hidden;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow:
+    0 24px 60px rgb(0 0 0 / 0.55),
+    0 0 0 1px rgb(0 0 0 / 0.3);
+  animation: uml-panel-in 0.14s ease-out;
+}
+
+@keyframes uml-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.uml-add-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  padding: 5px 10px;
+  border: 1px dashed var(--color-line-strong);
+  border-radius: 6px;
+  color: var(--color-fg-subtle);
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease,
+    background-color 0.12s ease;
+}
+
+.uml-add-row:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-fg);
+}
+
+.uml-row-drop {
+  box-shadow: inset 0 2px 0 var(--color-accent);
+}
+
+.uml-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--color-line);
+  border-radius: 7px;
+  color: var(--color-fg-muted);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.uml-option:hover:not(:disabled) {
+  background: var(--color-elevated);
+  color: var(--color-fg);
+}
+
+.uml-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.uml-option-active {
+  border-color: rgb(255 107 44 / 0.5);
+  background: var(--color-accent-soft);
+  color: var(--color-fg);
+}
+
+.uml-tool-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--color-fg-muted);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.uml-tool-item:hover:not(:disabled) {
+  background: var(--color-elevated);
+  color: var(--color-fg);
+}
+
+.uml-tool-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.uml-tool-item.uml-option-active {
+  border-color: rgb(255 107 44 / 0.5);
+  background: var(--color-accent-soft);
+  color: var(--color-fg);
+}
+
+.uml-icon-line {
+  stroke: currentColor;
+  stroke-width: 1.4;
+  fill: none;
+}
+.uml-icon-open {
+  stroke: currentColor;
+  stroke-width: 1.4;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.uml-icon-hollow {
+  stroke: currentColor;
+  stroke-width: 1.3;
+  fill: var(--color-surface);
+}
+.uml-icon-filled {
+  stroke: currentColor;
+  stroke-width: 1.3;
+  fill: currentColor;
+}
+
+.uml-chip {
+  height: 28px;
+  min-width: 34px;
+  padding: 0 7px;
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
+  color: var(--color-fg-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.uml-chip:hover {
+  background: var(--color-elevated);
+  color: var(--color-fg);
+}
+
+.uml-chip-active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-fg);
+}
+
+.uml-kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--color-line-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--color-bg);
+  color: var(--color-fg-muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+/* =========================================================================
+   Asistente
+   ========================================================================= */
+
+.ai-suggestion {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-fg-muted);
+  font-size: 12.5px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    color 0.12s ease,
+    background-color 0.12s ease;
+}
+
+.ai-suggestion:hover {
+  border-color: rgb(255 107 44 / 0.45);
+  background: var(--color-accent-soft);
+  color: var(--color-fg);
+}
+
+.ai-bubble-user {
+  max-width: 88%;
+  padding: 8px 12px;
+  border: 1px solid rgb(255 107 44 / 0.25);
+  border-radius: 14px 14px 4px 14px;
+  background: var(--color-accent-soft);
+  color: var(--color-fg);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+/* Mensaje de otra persona de la pizarra */
+.ai-bubble-peer {
+  max-width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 14px 14px 14px 4px;
+  background: var(--color-elevated);
+  color: var(--color-fg);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.ai-avatar {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ai-reply code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--color-elevated);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.ai-unread {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+}
+
+.ai-note {
+  padding: 9px 12px;
+  border: 1px solid;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.ai-note-warning {
+  border-color: rgb(245 158 11 / 0.3);
+  background: rgb(245 158 11 / 0.08);
+  color: #fde68a;
+}
+
+.ai-note-error {
+  border-color: rgb(239 68 68 / 0.3);
+  background: rgb(239 68 68 / 0.08);
+  color: #fecaca;
+}
+
+.ai-changes {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-line);
+  border-left: 2px solid var(--color-accent);
+  border-radius: 8px;
+  background: var(--color-bg);
+}
+
+/* =========================================================================
+   Editor estilo Miro: islas flotantes sobre el lienzo
+   ========================================================================= */
+
+.island {
+  border: 1px solid var(--color-line-strong);
+  border-radius: 14px;
+  background: var(--color-surface);
+  box-shadow:
+    0 8px 28px rgb(0 0 0 / 0.28),
+    0 1px 0 rgb(255 255 255 / 0.03) inset;
+}
+
+.tool-btn {
+  position: relative;
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  color: var(--color-fg-muted);
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.tool-btn:hover:not(:disabled) {
+  background: rgb(255 255 255 / 0.06);
+  color: var(--color-fg);
+}
+
+.tool-btn:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.tool-btn-active,
+.tool-btn-active:hover:not(:disabled) {
+  background: var(--color-elevated);
+  color: var(--color-fg);
+  box-shadow: inset 0 0 0 1px var(--color-line-strong);
+}
+
+/* Botón del asistente activo: resaltado con el acento, como el de IA en Miro */
+.tool-btn-ai-active,
+.tool-btn-ai-active:hover:not(:disabled) {
+  background: var(--color-accent);
+  color: var(--color-ink);
+}
+
+/* La herramienta Clase es un elemento arrastrable de Foblex: sin el estilo por defecto */
+.tool-btn.f-external-item {
+  display: inline-flex !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--color-fg-muted) !important;
+  cursor: grab;
+}
+
+.tool-btn.f-external-item:hover {
+  background: rgb(255 255 255 / 0.06) !important;
+  color: var(--color-fg) !important;
+}
+
+.f-external-item-preview.tool-btn {
+  background: var(--color-surface) !important;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.4) !important;
+}
+
+/* Tooltips: a la derecha en la barra vertical (data-tip) y arriba en la isla de zoom (data-tip-up) */
+[data-tip]:hover::after,
+[data-tip-up]:hover::after {
+  position: absolute;
+  z-index: 60;
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: #0a0b0a;
+  color: #f2f0e8;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.35);
+}
+
+[data-tip]:hover::after {
+  content: attr(data-tip);
+  top: 50%;
+  left: calc(100% + 12px);
+  transform: translateY(-50%);
+}
+
+[data-tip-up]:hover::after {
+  content: attr(data-tip-up);
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Barra del asistente (abajo en el centro) */
+.ai-prompt-bar {
+  border-radius: 16px;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.ai-prompt-bar:focus-within {
+  border-color: rgb(255 107 44 / 0.55);
+  box-shadow:
+    0 8px 28px rgb(0 0 0 / 0.28),
+    0 0 0 3px rgb(255 107 44 / 0.12);
+}

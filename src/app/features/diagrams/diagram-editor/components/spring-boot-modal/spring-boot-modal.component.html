@@ -1,0 +1,920 @@
+@if (isOpen()) {
+  <div class="modal-backdrop" (click)="closeModal.emit()">
+    <div
+      class="modal h-[92vh] max-h-[92vh] max-w-7xl text-xs"
+      (click)="$event.stopPropagation()"
+      role="dialog"
+      aria-modal="true"
+    >
+      <!-- 1. Header del Modal con Selector de Plataforma -->
+      <div
+        class="flex shrink-0 flex-col justify-between gap-3 border-b border-line px-5 py-3.5 text-fg sm:flex-row sm:items-center"
+      >
+        <div class="flex items-center gap-3">
+          <div
+            class="flex h-10 items-center justify-center gap-1.5 rounded-xl border border-line bg-elevated px-2.5"
+          >
+            <svg class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+              <path
+                d="M116.452 6.643a59.104 59.104 0 01-6.837 12.136A64.249 64.249 0 0064.205-.026C28.984-.026 0 28.982 0 64.242a64.316 64.316 0 0019.945 46.562l2.368 2.1a64.22 64.22 0 0041.358 15.122c33.487 0 61.637-26.24 64.021-59.683 1.751-16.371-3.051-37.077-11.24-61.7zM29.067 111.17a5.5 5.5 0 01-4.269 2.034c-3.018 0-5.487-2.484-5.487-5.502 0-3.017 2.485-5.501 5.487-5.501 1.25 0 2.485.433 3.452 1.234 2.351 1.9 2.718 5.384.817 7.735zm87.119-19.238c-15.843 21.122-49.68 14.003-71.376 15.02 0 0-3.852.234-7.721.867 0 0 1.45-.617 3.335-1.334 15.226-5.301 22.43-6.335 31.685-11.086 17.427-8.869 34.654-28.274 38.24-48.463-6.637 19.422-26.75 36.11-45.077 42.895-12.557 4.635-35.238 9.136-35.238 9.136l-.917-.484c-15.442-7.518-15.91-40.977 12.157-51.78 12.291-4.735 24.048-2.134 37.323-5.302 14.175-3.367 30.568-14.004 37.238-27.874 7.471 22.19 16.46 56.932.35 78.405z"
+                fill="#77bc1f"
+              />
+            </svg>
+            <svg class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+              <g fill="#3FB6D3">
+                <path
+                  d="M12.3 64.2L76.3 0h39.4L32.1 83.6zM76.3 128h39.4L81.6 93.9l34.1-34.8H76.3L42.2 93.5z"
+                />
+              </g>
+              <path fill="#27AACD" d="M81.6 93.9l-20-20-19.4 19.6 19.4 19.6z" />
+              <path fill="#19599A" d="M115.7 128L81.6 93.9l-20 19.2L76.3 128z" />
+              <linearGradient
+                id="flutter-header-icon-modal"
+                gradientUnits="userSpaceOnUse"
+                x1="59.365"
+                y1="116.36"
+                x2="86.825"
+                y2="99.399"
+              >
+                <stop offset="0" stop-color="#1b4e94" />
+                <stop offset=".63" stop-color="#1a5497" />
+                <stop offset="1" stop-color="#195a9b" />
+              </linearGradient>
+              <path fill="url(#flutter-header-icon-modal)" d="M61.6 113.1l30.8-8.4-10.8-10.8z" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] font-semibold">
+              <span>{{ 'codeGen.title' | translate }}</span>
+              <span class="badge badge-success">Clean Architecture</span>
+            </h3>
+            <p class="mt-0.5 text-xs text-fg-muted">
+              {{
+                'codeGen.stats'
+                  | translate
+                    : {
+                        classes: totalClasses(),
+                        relations: totalRelations(),
+                        files: files().length,
+                      }
+              }}
+            </p>
+          </div>
+        </div>
+
+        <!-- Selector de plataforma + cerrar -->
+        <div class="flex w-full min-w-0 items-center gap-2 sm:w-auto">
+          <div class="segmented no-scrollbar min-w-0 overflow-x-auto">
+            <button
+              (click)="setPlatform('all')"
+              [ngClass]="selectedPlatform() === 'all' ? 'segmented-item-active' : ''"
+              class="segmented-item"
+            >
+              <div class="flex items-center gap-1 shrink-0">
+                <svg
+                  class="w-3.5 h-3.5 shrink-0"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 128 128"
+                >
+                  <path
+                    d="M116.452 6.643a59.104 59.104 0 01-6.837 12.136A64.249 64.249 0 0064.205-.026C28.984-.026 0 28.982 0 64.242a64.316 64.316 0 0019.945 46.562l2.368 2.1a64.22 64.22 0 0041.358 15.122c33.487 0 61.637-26.24 64.021-59.683 1.751-16.371-3.051-37.077-11.24-61.7zM29.067 111.17a5.5 5.5 0 01-4.269 2.034c-3.018 0-5.487-2.484-5.487-5.502 0-3.017 2.485-5.501 5.487-5.501 1.25 0 2.485.433 3.452 1.234 2.351 1.9 2.718 5.384.817 7.735zm87.119-19.238c-15.843 21.122-49.68 14.003-71.376 15.02 0 0-3.852.234-7.721.867 0 0 1.45-.617 3.335-1.334 15.226-5.301 22.43-6.335 31.685-11.086 17.427-8.869 34.654-28.274 38.24-48.463-6.637 19.422-26.75 36.11-45.077 42.895-12.557 4.635-35.238 9.136-35.238 9.136l-.917-.484c-15.442-7.518-15.91-40.977 12.157-51.78 12.291-4.735 24.048-2.134 37.323-5.302 14.175-3.367 30.568-14.004 37.238-27.874 7.471 22.19 16.46 56.932.35 78.405z"
+                    fill="#77bc1f"
+                  />
+                </svg>
+                <svg
+                  class="w-3.5 h-3.5 shrink-0"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 128 128"
+                >
+                  <g fill="#3FB6D3">
+                    <path
+                      d="M12.3 64.2L76.3 0h39.4L32.1 83.6zM76.3 128h39.4L81.6 93.9l34.1-34.8H76.3L42.2 93.5z"
+                    />
+                  </g>
+                  <path fill="#27AACD" d="M81.6 93.9l-20-20-19.4 19.6 19.4 19.6z" />
+                  <path fill="#19599A" d="M115.7 128L81.6 93.9l-20 19.2L76.3 128z" />
+                  <linearGradient
+                    id="flutter-all-btn-modal"
+                    gradientUnits="userSpaceOnUse"
+                    x1="59.365"
+                    y1="116.36"
+                    x2="86.825"
+                    y2="99.399"
+                  >
+                    <stop offset="0" stop-color="#1b4e94" />
+                    <stop offset=".63" stop-color="#1a5497" />
+                    <stop offset="1" stop-color="#195a9b" />
+                  </linearGradient>
+                  <path fill="url(#flutter-all-btn-modal)" d="M61.6 113.1l30.8-8.4-10.8-10.8z" />
+                </svg>
+              </div>
+              <span>{{ 'codeGen.platformAll' | translate }}</span>
+            </button>
+            <button
+              (click)="setPlatform('spring-boot')"
+              [ngClass]="selectedPlatform() === 'spring-boot' ? 'segmented-item-active' : ''"
+              class="segmented-item"
+            >
+              <svg
+                class="w-3.5 h-3.5 shrink-0"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 128 128"
+              >
+                <path
+                  d="M116.452 6.643a59.104 59.104 0 01-6.837 12.136A64.249 64.249 0 0064.205-.026C28.984-.026 0 28.982 0 64.242a64.316 64.316 0 0019.945 46.562l2.368 2.1a64.22 64.22 0 0041.358 15.122c33.487 0 61.637-26.24 64.021-59.683 1.751-16.371-3.051-37.077-11.24-61.7zM29.067 111.17a5.5 5.5 0 01-4.269 2.034c-3.018 0-5.487-2.484-5.487-5.502 0-3.017 2.485-5.501 5.487-5.501 1.25 0 2.485.433 3.452 1.234 2.351 1.9 2.718 5.384.817 7.735zm87.119-19.238c-15.843 21.122-49.68 14.003-71.376 15.02 0 0-3.852.234-7.721.867 0 0 1.45-.617 3.335-1.334 15.226-5.301 22.43-6.335 31.685-11.086 17.427-8.869 34.654-28.274 38.24-48.463-6.637 19.422-26.75 36.11-45.077 42.895-12.557 4.635-35.238 9.136-35.238 9.136l-.917-.484c-15.442-7.518-15.91-40.977 12.157-51.78 12.291-4.735 24.048-2.134 37.323-5.302 14.175-3.367 30.568-14.004 37.238-27.874 7.471 22.19 16.46 56.932.35 78.405z"
+                  fill="#77bc1f"
+                />
+              </svg>
+              <span>Spring Boot</span>
+            </button>
+            <button
+              (click)="setPlatform('flutter')"
+              [ngClass]="selectedPlatform() === 'flutter' ? 'segmented-item-active' : ''"
+              class="segmented-item"
+            >
+              <svg
+                class="w-3.5 h-3.5 shrink-0"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 128 128"
+              >
+                <g fill="#3FB6D3">
+                  <path
+                    d="M12.3 64.2L76.3 0h39.4L32.1 83.6zM76.3 128h39.4L81.6 93.9l34.1-34.8H76.3L42.2 93.5z"
+                  />
+                </g>
+                <path fill="#27AACD" d="M81.6 93.9l-20-20-19.4 19.6 19.4 19.6z" />
+                <path fill="#19599A" d="M115.7 128L81.6 93.9l-20 19.2L76.3 128z" />
+                <linearGradient
+                  id="flutter-platform-btn-modal"
+                  gradientUnits="userSpaceOnUse"
+                  x1="59.365"
+                  y1="116.36"
+                  x2="86.825"
+                  y2="99.399"
+                >
+                  <stop offset="0" stop-color="#1b4e94" />
+                  <stop offset=".63" stop-color="#1a5497" />
+                  <stop offset="1" stop-color="#195a9b" />
+                </linearGradient>
+                <path fill="url(#flutter-platform-btn-modal)" d="M61.6 113.1l30.8-8.4-10.8-10.8z" />
+              </svg>
+              <span>Flutter BLoC</span>
+            </button>
+          </div>
+          <button
+            type="button"
+            (click)="closeModal.emit()"
+            class="btn btn-ghost btn-icon ml-auto shrink-0"
+          >
+            <ng-icon name="heroXMark" class="text-lg"></ng-icon>
+          </button>
+        </div>
+      </div>
+
+      @if (!diagramId()) {
+        <div
+          class="flex shrink-0 items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-5 py-2.5 text-xs text-amber-200"
+        >
+          <ng-icon
+            name="heroExclamationTriangle"
+            class="shrink-0 text-base text-amber-300"
+          ></ng-icon>
+          <span class="font-semibold">{{ 'codeGen.warningTitle' | translate }}</span>
+          <span>{{ 'codeGen.warningDesc' | translate }}</span>
+        </div>
+      }
+
+      <!-- 2. Parámetros de Configuración del Proyecto (Compacto) -->
+      <div class="grid shrink-0 grid-cols-2 gap-3 border-b border-line px-5 py-3.5 lg:grid-cols-4">
+        <div>
+          <label class="label !mb-1 !text-[11px]">{{ 'codeGen.packageBase' | translate }}</label>
+          <input
+            [(ngModel)]="packageName"
+            (change)="generatePreview()"
+            type="text"
+            class="input input-sm font-mono"
+          />
+        </div>
+        <div>
+          <label class="label !mb-1 !text-[11px]">{{ 'codeGen.artifactId' | translate }}</label>
+          <input
+            [(ngModel)]="artifactId"
+            (change)="generatePreview()"
+            type="text"
+            class="input input-sm font-mono"
+          />
+        </div>
+        <div>
+          <label class="label !mb-1 !text-[11px]">{{ 'codeGen.serverDbPort' | translate }}</label>
+          <div class="flex gap-1.5">
+            <input
+              [(ngModel)]="serverPort"
+              (change)="generatePreview()"
+              type="number"
+              placeholder="Server Port (8080)"
+              class="input input-sm w-1/2 font-mono"
+            />
+            <input
+              [(ngModel)]="databasePort"
+              (change)="generatePreview()"
+              type="number"
+              placeholder="DB Port (5432)"
+              class="input input-sm w-1/2 font-mono"
+            />
+          </div>
+        </div>
+        <div>
+          <label class="label !mb-1 !text-[11px]">{{ 'codeGen.usbConnection' | translate }}</label>
+          <div
+            class="flex h-8 items-center truncate rounded-md border border-dashed border-line px-2.5 font-mono text-[11px] text-fg-muted"
+          >
+            <code>adb reverse tcp:{{ serverPort() }} tcp:{{ serverPort() }}</code>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Barra de Filtros por Capa / Categoría -->
+      <div
+        class="no-scrollbar flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-line px-5 py-2.5"
+      >
+        <button
+          (click)="activeCategory.set('all')"
+          [ngClass]="
+            activeCategory() === 'all'
+              ? '!border-accent !bg-accent !text-ink'
+              : 'hover:border-line-strong hover:text-fg'
+          "
+          class="badge shrink-0 cursor-pointer !rounded-full !px-2.5 !py-1 !text-xs transition-colors"
+        >
+          {{ 'codeGen.filterAll' | translate }} ({{ files().length }})
+        </button>
+
+        @if (selectedPlatform() === 'all') {
+          <button
+            (click)="activeCategory.set('spring-boot')"
+            [ngClass]="
+              activeCategory() === 'spring-boot'
+                ? '!border-accent !bg-accent !text-ink'
+                : 'hover:border-line-strong hover:text-fg'
+            "
+            class="badge shrink-0 cursor-pointer !rounded-full !px-2.5 !py-1 !text-xs transition-colors"
+          >
+            <svg
+              class="w-3.5 h-3.5 shrink-0"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 128 128"
+            >
+              <path
+                d="M116.452 6.643a59.104 59.104 0 01-6.837 12.136A64.249 64.249 0 0064.205-.026C28.984-.026 0 28.982 0 64.242a64.316 64.316 0 0019.945 46.562l2.368 2.1a64.22 64.22 0 0041.358 15.122c33.487 0 61.637-26.24 64.021-59.683 1.751-16.371-3.051-37.077-11.24-61.7zM29.067 111.17a5.5 5.5 0 01-4.269 2.034c-3.018 0-5.487-2.484-5.487-5.502 0-3.017 2.485-5.501 5.487-5.501 1.25 0 2.485.433 3.452 1.234 2.351 1.9 2.718 5.384.817 7.735zm87.119-19.238c-15.843 21.122-49.68 14.003-71.376 15.02 0 0-3.852.234-7.721.867 0 0 1.45-.617 3.335-1.334 15.226-5.301 22.43-6.335 31.685-11.086 17.427-8.869 34.654-28.274 38.24-48.463-6.637 19.422-26.75 36.11-45.077 42.895-12.557 4.635-35.238 9.136-35.238 9.136l-.917-.484c-15.442-7.518-15.91-40.977 12.157-51.78 12.291-4.735 24.048-2.134 37.323-5.302 14.175-3.367 30.568-14.004 37.238-27.874 7.471 22.19 16.46 56.932.35 78.405z"
+                fill="#77bc1f"
+              />
+            </svg>
+            <span>Spring Boot (backend/)</span>
+          </button>
+          <button
+            (click)="activeCategory.set('flutter')"
+            [ngClass]="
+              activeCategory() === 'flutter'
+                ? '!border-accent !bg-accent !text-ink'
+                : 'hover:border-line-strong hover:text-fg'
+            "
+            class="badge shrink-0 cursor-pointer !rounded-full !px-2.5 !py-1 !text-xs transition-colors"
+          >
+            <svg
+              class="w-3.5 h-3.5 shrink-0"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 128 128"
+            >
+              <g fill="#3FB6D3">
+                <path
+                  d="M12.3 64.2L76.3 0h39.4L32.1 83.6zM76.3 128h39.4L81.6 93.9l34.1-34.8H76.3L42.2 93.5z"
+                />
+              </g>
+              <path fill="#27AACD" d="M81.6 93.9l-20-20-19.4 19.6 19.4 19.6z" />
+              <path fill="#19599A" d="M115.7 128L81.6 93.9l-20 19.2L76.3 128z" />
+              <linearGradient
+                id="flutter-cat-filter-modal"
+                gradientUnits="userSpaceOnUse"
+                x1="59.365"
+                y1="116.36"
+                x2="86.825"
+                y2="99.399"
+              >
+                <stop offset="0" stop-color="#1b4e94" />
+                <stop offset=".63" stop-color="#1a5497" />
+                <stop offset="1" stop-color="#195a9b" />
+              </linearGradient>
+              <path fill="url(#flutter-cat-filter-modal)" d="M61.6 113.1l30.8-8.4-10.8-10.8z" />
+            </svg>
+            <span>Flutter (mobile_flutter/)</span>
+          </button>
+        }
+
+        <button
+          (click)="activeCategory.set('entity')"
+          [ngClass]="
+            activeCategory() === 'entity'
+              ? '!border-accent !bg-accent !text-ink'
+              : 'hover:border-line-strong hover:text-fg'
+          "
+          class="badge shrink-0 cursor-pointer !rounded-full !px-2.5 !py-1 !text-xs transition-colors"
+        >
+          {{ 'codeGen.categories.entity' | translate }}
+        </button>
+        <button
+          (click)="activeCategory.set('repository')"
+          [ngClass]="
+            activeCategory() === 'repository'
+              ? '!border-accent !bg-accent !text-ink'
+              : 'hover:border-line-strong hover:text-fg'
+          "
+          class="badge shrink-0 cursor-pointer !rounded-full !px-2.5 !py-1 !text-xs transition-colors"
+        >
+          {{ 'codeGen.categories.repository' | translate }}
+        </button>
+        <button
+          (click)="activeCategory.set('dto')"
+          [ngClass]="
+            activeCategory() === 'dto'
+              ? '!border-accent !bg-accent !text-ink'
+              : 'hover:border-line-strong hover:text-fg'
+          "
+          class="badge shrink-0 cursor-pointer !rounded-full !px-2.5 !py-1 !text-xs transition-colors"
+        >
+          {{ 'codeGen.categories.dto' | translate }}
+        </button>
+        <button
+          (click)="activeCategory.set('service')"
+          [ngClass]="
+            activeCategory() === 'service'
+              ? '!border-accent !bg-accent !text-ink'
+              : 'hover:border-line-strong hover:text-fg'
+          "
+          class="badge shrink-0 cursor-pointer !rounded-full !px-2.5 !py-1 !text-xs transition-colors"
+        >
+          {{ 'codeGen.categories.service' | translate }}
+        </button>
+        <button
+          (click)="activeCategory.set('controller')"
+          [ngClass]="
+            activeCategory() === 'controller'
+              ? '!border-accent !bg-accent !text-ink'
+              : 'hover:border-line-strong hover:text-fg'
+          "
+          class="badge shrink-0 cursor-pointer !rounded-full !px-2.5 !py-1 !text-xs transition-colors"
+        >
+          {{ 'codeGen.categories.controller' | translate }}
+        </button>
+        <button
+          (click)="activeCategory.set('migration')"
+          [ngClass]="
+            activeCategory() === 'migration'
+              ? '!border-accent !bg-accent !text-ink'
+              : 'hover:border-line-strong hover:text-fg'
+          "
+          class="badge shrink-0 cursor-pointer !rounded-full !px-2.5 !py-1 !text-xs transition-colors"
+        >
+          {{ 'codeGen.categories.migration' | translate }}
+        </button>
+        <button
+          (click)="activeCategory.set('docker')"
+          [ngClass]="
+            activeCategory() === 'docker'
+              ? '!border-accent !bg-accent !text-ink'
+              : 'hover:border-line-strong hover:text-fg'
+          "
+          class="badge shrink-0 cursor-pointer !rounded-full !px-2.5 !py-1 !text-xs transition-colors"
+        >
+          <svg
+            class="w-3.5 h-3.5 shrink-0"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 128 128"
+          >
+            <path
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+              fill="#3A4D54"
+              d="M73.8 50.8h11.3v11.5h5.7c2.6 0 5.3-.5 7.8-1.3 1.2-.4 2.6-1 3.8-1.7-1.6-2.1-2.4-4.7-2.6-7.3-.3-3.5.4-8.1 2.8-10.8l1.2-1.4 1.4 1.1c3.6 2.9 6.5 6.8 7.1 11.4 4.3-1.3 9.3-1 13.1 1.2l1.5.9-.8 1.6c-3.2 6.2-9.9 8.2-16.4 7.8-9.8 24.3-31 35.8-56.8 35.8-13.3 0-25.5-5-32.5-16.8l-.1-.2-1-2.1c-2.4-5.2-3.1-10.9-2.6-16.6l.2-1.7h9.6V50.8h11.3V39.6h22.5V28.3h13.5v22.5z"
+            />
+            <path
+              fill="#00AADA"
+              d="M110.4 55.1c.8-5.9-3.6-10.5-6.4-12.7-3.1 3.6-3.6 13.2 1.3 17.2-2.8 2.4-8.5 4.7-14.5 4.7H18.6c-.6 6.2.5 11.9 3 16.8l.8 1.5c.5.9 1.1 1.7 1.7 2.6 3 .2 5.7.3 8.2.2 4.9-.1 8.9-.7 12-1.7.5-.2.9.1 1.1.5.2.5-.1.9-.5 1.1-.4.1-.8.3-1.3.4-2.4.7-5 1.1-8.3 1.3h-.6c-1.3.1-2.7.1-4.2.1-1.6 0-3.1 0-4.9-.1 6 6.8 15.4 10.8 27.2 10.8 25 0 46.2-11.1 55.5-35.9 6.7.7 13.1-1 16-6.7-4.5-2.7-10.5-1.8-13.9-.1z"
+            />
+            <path
+              fill="#28B8EB"
+              d="M110.4 55.1c.8-5.9-3.6-10.5-6.4-12.7-3.1 3.6-3.6 13.2 1.3 17.2-2.8 2.4-8.5 4.7-14.5 4.7h-68c-.3 9.5 3.2 16.7 9.5 21 4.9-.1 8.9-.7 12-1.7.5-.2.9.1 1.1.5.2.5-.1.9-.5 1.1-.4.1-.8.3-1.3.4-2.4.7-5.2 1.2-8.5 1.4l-.1-.1c8.5 4.4 20.8 4.3 35-1.1 15.8-6.1 30.6-17.7 40.9-30.9-.2.1-.4.1-.5.2z"
+            />
+            <path
+              fill="#028BB8"
+              d="M18.7 71.8c.4 3.3 1.4 6.4 2.9 9.3l.8 1.5c.5.9 1.1 1.7 1.7 2.6 3 .2 5.7.3 8.2.2 4.9-.1 8.9-.7 12-1.7.5-.2.9.1 1.1.5.2.5-.1.9-.5 1.1-.4.1-.8.3-1.3.4-2.4.7-5.2 1.2-8.5 1.4h-.4c-1.3.1-2.7.1-4.1.1-1.6 0-3.2 0-4.9-.1 6 6.8 15.5 10.8 27.3 10.8 21.4 0 40-8.1 50.8-26H18.7v-.1z"
+            />
+            <path
+              fill="#019BC6"
+              d="M23.5 71.8c1.3 5.8 4.3 10.4 8.8 13.5 4.9-.1 8.9-.7 12-1.7.5-.2.9.1 1.1.5.2.5-.1.9-.5 1.1-.4.1-.8.3-1.3.4-2.4.7-5.2 1.2-8.6 1.4 8.5 4.4 20.8 4.3 34.9-1.1 8.5-3.3 16.8-8.2 24.2-14.1H23.5z"
+            />
+            <path
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+              fill="#00ACD3"
+              d="M28.4 52.7h9.8v9.8h-9.8v-9.8zm.8.8h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm3-12h9.8v9.8h-9.8v-9.8zm.9.8h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1z"
+            />
+            <path
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+              fill="#23C2EE"
+              d="M39.6 52.7h9.8v9.8h-9.8v-9.8zm.9.8h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1z"
+            />
+            <path
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+              fill="#00ACD3"
+              d="M50.9 52.7h9.8v9.8h-9.8v-9.8zm.8.8h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1z"
+            />
+            <path
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+              fill="#23C2EE"
+              d="M50.9 41.5h9.8v9.8h-9.8v-9.8zm.8.8h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm3.1 10.4H72v9.8h-9.8v-9.8zm.8.8h.8v8.1H63v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1z"
+            />
+            <path
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+              fill="#00ACD3"
+              d="M62.2 41.5H72v9.8h-9.8v-9.8zm.8.8h.8v8.1H63v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1z"
+            />
+            <path
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+              fill="#23C2EE"
+              d="M62.2 30.2H72V40h-9.8v-9.8zm.8.8h.8v8.1H63V31zm1.5 0h.8v8.1h-.8V31zm1.4 0h.8v8.1h-.8V31zm1.5 0h.8v8.1h-.8V31zm1.5 0h.8v8.1h-.8V31zm1.5 0h.8v8.1h-.8V31z"
+            />
+            <path
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+              fill="#00ACD3"
+              d="M73.5 52.7h9.8v9.8h-9.8v-9.8zm.8.8h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1z"
+            />
+            <path
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+              fill="#D4EEF1"
+              d="M48.8 78.3c1.5 0 2.7 1.2 2.7 2.7 0 1.5-1.2 2.7-2.7 2.7-1.5 0-2.7-1.2-2.7-2.7 0-1.5 1.2-2.7 2.7-2.7"
+            />
+            <path
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+              fill="#3A4D54"
+              d="M48.8 79.1c.2 0 .5 0 .7.1-.2.1-.4.4-.4.7 0 .4.4.8.8.8.3 0 .6-.2.7-.4.1.2.1.5.1.7 0 1.1-.9 1.9-1.9 1.9-1.1 0-1.9-.9-1.9-1.9 0-1 .8-1.9 1.9-1.9M1.1 72.8h125.4c-2.7-.7-8.6-1.6-7.7-5.2-5 5.7-16.9 4-20 1.2-3.4 4.9-23 3-24.3-.8-4.2 5-17.3 5-21.5 0-1.4 3.8-21 5.7-24.3.8-3 2.8-15 4.5-20-1.2 1.1 3.5-4.9 4.5-7.6 5.2"
+            />
+            <path
+              fill="#BFDBE0"
+              d="M56 97.8c-6.7-3.2-10.3-7.5-12.4-12.2-2.5.7-5.5 1.2-8.9 1.4-1.3.1-2.7.1-4.1.1-1.7 0-3.4 0-5.2-.1 6 6 13.6 10.7 27.5 10.8H56z"
+            />
+            <path
+              fill="#D4EEF1"
+              d="M46.1 89.9c-.9-1.3-1.8-2.8-2.5-4.3-2.5.7-5.5 1.2-8.9 1.4 2.3 1.2 5.7 2.4 11.4 2.9z"
+            />
+          </svg>
+          <span>{{ 'codeGen.categories.docker' | translate }}</span>
+        </button>
+      </div>
+
+      <!-- 4. Cuerpo Principal: Explorador de Archivos + Visor de Código -->
+      <div class="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+        <!-- Columna Izquierda: Lista de Archivos -->
+        <div
+          class="flex max-h-56 w-full shrink-0 flex-col overflow-y-auto border-b border-line bg-surface md:max-h-none md:w-80 md:border-r md:border-b-0"
+        >
+          <div
+            class="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface/95 px-4 py-2.5 backdrop-blur"
+          >
+            <span class="section-title">{{ 'codeGen.fileExplorer' | translate }}</span>
+            <span class="badge !py-0 font-mono">{{
+              'codeGen.filesCount' | translate: { count: filteredFiles().length }
+            }}</span>
+          </div>
+
+          @if (isGenerating()) {
+            <div class="flex flex-col items-center gap-3 p-10 text-center text-fg-muted">
+              <span class="spinner !h-5 !w-5 text-accent"></span>
+              <span>{{
+                'codeGen.compiling'
+                  | translate
+                    : {
+                        target:
+                          selectedPlatform() === 'all'
+                            ? 'Spring Boot & Flutter'
+                            : selectedPlatform(),
+                      }
+              }}</span>
+            </div>
+          } @else {
+            <div class="space-y-0.5 p-2">
+              @for (file of filteredFiles(); track file.path) {
+                <button
+                  (click)="selectFile(file)"
+                  [ngClass]="
+                    selectedFile()?.path === file.path
+                      ? 'bg-elevated text-fg ring-1 ring-line-strong'
+                      : 'text-fg-muted hover:bg-elevated/60 hover:text-fg'
+                  "
+                  class="flex w-full cursor-pointer flex-col gap-1 rounded-lg px-2.5 py-2 text-left transition-colors"
+                >
+                  <div class="flex items-center justify-between gap-1">
+                    <div class="flex items-center gap-1.5 min-w-0">
+                      @if (
+                        file.layer === 'docker' || file.filename.toLowerCase().includes('docker')
+                      ) {
+                        <svg
+                          class="w-3.5 h-3.5 shrink-0"
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 128 128"
+                        >
+                          <path
+                            fill-rule="evenodd"
+                            clip-rule="evenodd"
+                            fill="#3A4D54"
+                            d="M73.8 50.8h11.3v11.5h5.7c2.6 0 5.3-.5 7.8-1.3 1.2-.4 2.6-1 3.8-1.7-1.6-2.1-2.4-4.7-2.6-7.3-.3-3.5.4-8.1 2.8-10.8l1.2-1.4 1.4 1.1c3.6 2.9 6.5 6.8 7.1 11.4 4.3-1.3 9.3-1 13.1 1.2l1.5.9-.8 1.6c-3.2 6.2-9.9 8.2-16.4 7.8-9.8 24.3-31 35.8-56.8 35.8-13.3 0-25.5-5-32.5-16.8l-.1-.2-1-2.1c-2.4-5.2-3.1-10.9-2.6-16.6l.2-1.7h9.6V50.8h11.3V39.6h22.5V28.3h13.5v22.5z"
+                          />
+                          <path
+                            fill="#00AADA"
+                            d="M110.4 55.1c.8-5.9-3.6-10.5-6.4-12.7-3.1 3.6-3.6 13.2 1.3 17.2-2.8 2.4-8.5 4.7-14.5 4.7H18.6c-.6 6.2.5 11.9 3 16.8l.8 1.5c.5.9 1.1 1.7 1.7 2.6 3 .2 5.7.3 8.2.2 4.9-.1 8.9-.7 12-1.7.5-.2.9.1 1.1.5.2.5-.1.9-.5 1.1-.4.1-.8.3-1.3.4-2.4.7-5 1.1-8.3 1.3h-.6c-1.3.1-2.7.1-4.2.1-1.6 0-3.1 0-4.9-.1 6 6.8 15.4 10.8 27.2 10.8 25 0 46.2-11.1 55.5-35.9 6.7.7 13.1-1 16-6.7-4.5-2.7-10.5-1.8-13.9-.1z"
+                          />
+                          <path
+                            fill="#28B8EB"
+                            d="M110.4 55.1c.8-5.9-3.6-10.5-6.4-12.7-3.1 3.6-3.6 13.2 1.3 17.2-2.8 2.4-8.5 4.7-14.5 4.7h-68c-.3 9.5 3.2 16.7 9.5 21 4.9-.1 8.9-.7 12-1.7.5-.2.9.1 1.1.5.2.5-.1.9-.5 1.1-.4.1-.8.3-1.3.4-2.4.7-5.2 1.2-8.5 1.4l-.1-.1c8.5 4.4 20.8 4.3 35-1.1 15.8-6.1 30.6-17.7 40.9-30.9-.2.1-.4.1-.5.2z"
+                          />
+                          <path
+                            fill="#028BB8"
+                            d="M18.7 71.8c.4 3.3 1.4 6.4 2.9 9.3l.8 1.5c.5.9 1.1 1.7 1.7 2.6 3 .2 5.7.3 8.2.2 4.9-.1 8.9-.7 12-1.7.5-.2.9.1 1.1.5.2.5-.1.9-.5 1.1-.4.1-.8.3-1.3.4-2.4.7-5.2 1.2-8.5 1.4h-.4c-1.3.1-2.7.1-4.1.1-1.6 0-3.2 0-4.9-.1 6 6.8 15.5 10.8 27.3 10.8 21.4 0 40-8.1 50.8-26H18.7v-.1z"
+                          />
+                          <path
+                            fill="#019BC6"
+                            d="M23.5 71.8c1.3 5.8 4.3 10.4 8.8 13.5 4.9-.1 8.9-.7 12-1.7.5-.2.9.1 1.1.5.2.5-.1.9-.5 1.1-.4.1-.8.3-1.3.4-2.4.7-5.2 1.2-8.6 1.4 8.5 4.4 20.8 4.3 34.9-1.1 8.5-3.3 16.8-8.2 24.2-14.1H23.5z"
+                          />
+                          <path
+                            fill-rule="evenodd"
+                            clip-rule="evenodd"
+                            fill="#00ACD3"
+                            d="M28.4 52.7h9.8v9.8h-9.8v-9.8zm.8.8h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm3-12h9.8v9.8h-9.8v-9.8zm.9.8h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1z"
+                          />
+                          <path
+                            fill-rule="evenodd"
+                            clip-rule="evenodd"
+                            fill="#23C2EE"
+                            d="M39.6 52.7h9.8v9.8h-9.8v-9.8zm.9.8h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1z"
+                          />
+                          <path
+                            fill-rule="evenodd"
+                            clip-rule="evenodd"
+                            fill="#00ACD3"
+                            d="M50.9 52.7h9.8v9.8h-9.8v-9.8zm.8.8h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1z"
+                          />
+                          <path
+                            fill-rule="evenodd"
+                            clip-rule="evenodd"
+                            fill="#23C2EE"
+                            d="M50.9 41.5h9.8v9.8h-9.8v-9.8zm.8.8h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm3.1 10.4H72v9.8h-9.8v-9.8zm.8.8h.8v8.1H63v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1z"
+                          />
+                          <path
+                            fill-rule="evenodd"
+                            clip-rule="evenodd"
+                            fill="#00ACD3"
+                            d="M62.2 41.5H72v9.8h-9.8v-9.8zm.8.8h.8v8.1H63v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1z"
+                          />
+                          <path
+                            fill-rule="evenodd"
+                            clip-rule="evenodd"
+                            fill="#23C2EE"
+                            d="M62.2 30.2H72V40h-9.8v-9.8zm.8.8h.8v8.1H63V31zm1.5 0h.8v8.1h-.8V31zm1.4 0h.8v8.1h-.8V31zm1.5 0h.8v8.1h-.8V31zm1.5 0h.8v8.1h-.8V31zm1.5 0h.8v8.1h-.8V31z"
+                          />
+                          <path
+                            fill-rule="evenodd"
+                            clip-rule="evenodd"
+                            fill="#00ACD3"
+                            d="M73.5 52.7h9.8v9.8h-9.8v-9.8zm.8.8h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1z"
+                          />
+                          <path
+                            fill-rule="evenodd"
+                            clip-rule="evenodd"
+                            fill="#D4EEF1"
+                            d="M48.8 78.3c1.5 0 2.7 1.2 2.7 2.7 0 1.5-1.2 2.7-2.7 2.7-1.5 0-2.7-1.2-2.7-2.7 0-1.5 1.2-2.7 2.7-2.7"
+                          />
+                          <path
+                            fill-rule="evenodd"
+                            clip-rule="evenodd"
+                            fill="#3A4D54"
+                            d="M48.8 79.1c.2 0 .5 0 .7.1-.2.1-.4.4-.4.7 0 .4.4.8.8.8.3 0 .6-.2.7-.4.1.2.1.5.1.7 0 1.1-.9 1.9-1.9 1.9-1.1 0-1.9-.9-1.9-1.9 0-1 .8-1.9 1.9-1.9M1.1 72.8h125.4c-2.7-.7-8.6-1.6-7.7-5.2-5 5.7-16.9 4-20 1.2-3.4 4.9-23 3-24.3-.8-4.2 5-17.3 5-21.5 0-1.4 3.8-21 5.7-24.3.8-3 2.8-15 4.5-20-1.2 1.1 3.5-4.9 4.5-7.6 5.2"
+                          />
+                          <path
+                            fill="#BFDBE0"
+                            d="M56 97.8c-6.7-3.2-10.3-7.5-12.4-12.2-2.5.7-5.5 1.2-8.9 1.4-1.3.1-2.7.1-4.1.1-1.7 0-3.4 0-5.2-.1 6 6 13.6 10.7 27.5 10.8H56z"
+                          />
+                          <path
+                            fill="#D4EEF1"
+                            d="M46.1 89.9c-.9-1.3-1.8-2.8-2.5-4.3-2.5.7-5.5 1.2-8.9 1.4 2.3 1.2 5.7 2.4 11.4 2.9z"
+                          />
+                        </svg>
+                      } @else if (
+                        file.path.includes('mobile_flutter') || file.language === 'dart'
+                      ) {
+                        <svg
+                          class="w-3.5 h-3.5 shrink-0"
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 128 128"
+                        >
+                          <g fill="#3FB6D3">
+                            <path
+                              d="M12.3 64.2L76.3 0h39.4L32.1 83.6zM76.3 128h39.4L81.6 93.9l34.1-34.8H76.3L42.2 93.5z"
+                            />
+                          </g>
+                          <path fill="#27AACD" d="M81.6 93.9l-20-20-19.4 19.6 19.4 19.6z" />
+                          <path fill="#19599A" d="M115.7 128L81.6 93.9l-20 19.2L76.3 128z" />
+                        </svg>
+                      } @else {
+                        <svg
+                          class="w-3.5 h-3.5 shrink-0"
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 128 128"
+                        >
+                          <path
+                            d="M116.452 6.643a59.104 59.104 0 01-6.837 12.136A64.249 64.249 0 0064.205-.026C28.984-.026 0 28.982 0 64.242a64.316 64.316 0 0019.945 46.562l2.368 2.1a64.22 64.22 0 0041.358 15.122c33.487 0 61.637-26.24 64.021-59.683 1.751-16.371-3.051-37.077-11.24-61.7zM29.067 111.17a5.5 5.5 0 01-4.269 2.034c-3.018 0-5.487-2.484-5.487-5.502 0-3.017 2.485-5.501 5.487-5.501 1.25 0 2.485.433 3.452 1.234 2.351 1.9 2.718 5.384.817 7.735zm87.119-19.238c-15.843 21.122-49.68 14.003-71.376 15.02 0 0-3.852.234-7.721.867 0 0 1.45-.617 3.335-1.334 15.226-5.301 22.43-6.335 31.685-11.086 17.427-8.869 34.654-28.274 38.24-48.463-6.637 19.422-26.75 36.11-45.077 42.895-12.557 4.635-35.238 9.136-35.238 9.136l-.917-.484c-15.442-7.518-15.91-40.977 12.157-51.78 12.291-4.735 24.048-2.134 37.323-5.302 14.175-3.367 30.568-14.004 37.238-27.874 7.471 22.19 16.46 56.932.35 78.405z"
+                            fill="#77bc1f"
+                          />
+                        </svg>
+                      }
+                      <span class="truncate font-mono text-[12px]">{{ file.filename }}</span>
+                    </div>
+                    <span
+                      class="shrink-0 rounded-md border px-1.5 py-px text-[10px] font-medium"
+                      [ngClass]="getLayerBadge(file).class"
+                    >
+                      {{ getLayerBadge(file).label }}
+                    </span>
+                  </div>
+                  <span class="truncate font-mono text-[10.5px] text-fg-subtle">{{
+                    file.path
+                  }}</span>
+                </button>
+              }
+            </div>
+          }
+        </div>
+
+        <!-- Columna Derecha: Visor de Código -->
+        <div class="flex min-w-0 flex-1 flex-col overflow-hidden bg-bg text-fg">
+          <!-- Barra Superior del Editor de Código -->
+          @if (selectedFile()) {
+            <div
+              class="flex shrink-0 items-center justify-between gap-3 border-b border-line px-4 py-2"
+            >
+              <div class="flex min-w-0 items-center gap-2">
+                @if (
+                  selectedFile()?.layer === 'docker' ||
+                  selectedFile()?.filename?.toLowerCase()?.includes('docker')
+                ) {
+                  <svg
+                    class="w-4 h-4 shrink-0"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 128 128"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      clip-rule="evenodd"
+                      fill="#3A4D54"
+                      d="M73.8 50.8h11.3v11.5h5.7c2.6 0 5.3-.5 7.8-1.3 1.2-.4 2.6-1 3.8-1.7-1.6-2.1-2.4-4.7-2.6-7.3-.3-3.5.4-8.1 2.8-10.8l1.2-1.4 1.4 1.1c3.6 2.9 6.5 6.8 7.1 11.4 4.3-1.3 9.3-1 13.1 1.2l1.5.9-.8 1.6c-3.2 6.2-9.9 8.2-16.4 7.8-9.8 24.3-31 35.8-56.8 35.8-13.3 0-25.5-5-32.5-16.8l-.1-.2-1-2.1c-2.4-5.2-3.1-10.9-2.6-16.6l.2-1.7h9.6V50.8h11.3V39.6h22.5V28.3h13.5v22.5z"
+                    />
+                    <path
+                      fill="#00AADA"
+                      d="M110.4 55.1c.8-5.9-3.6-10.5-6.4-12.7-3.1 3.6-3.6 13.2 1.3 17.2-2.8 2.4-8.5 4.7-14.5 4.7H18.6c-.6 6.2.5 11.9 3 16.8l.8 1.5c.5.9 1.1 1.7 1.7 2.6 3 .2 5.7.3 8.2.2 4.9-.1 8.9-.7 12-1.7.5-.2.9.1 1.1.5.2.5-.1.9-.5 1.1-.4.1-.8.3-1.3.4-2.4.7-5 1.1-8.3 1.3h-.6c-1.3.1-2.7.1-4.2.1-1.6 0-3.1 0-4.9-.1 6 6.8 15.4 10.8 27.2 10.8 25 0 46.2-11.1 55.5-35.9 6.7.7 13.1-1 16-6.7-4.5-2.7-10.5-1.8-13.9-.1z"
+                    />
+                    <path
+                      fill="#28B8EB"
+                      d="M110.4 55.1c.8-5.9-3.6-10.5-6.4-12.7-3.1 3.6-3.6 13.2 1.3 17.2-2.8 2.4-8.5 4.7-14.5 4.7h-68c-.3 9.5 3.2 16.7 9.5 21 4.9-.1 8.9-.7 12-1.7.5-.2.9.1 1.1.5.2.5-.1.9-.5 1.1-.4.1-.8.3-1.3.4-2.4.7-5.2 1.2-8.5 1.4l-.1-.1c8.5 4.4 20.8 4.3 35-1.1 15.8-6.1 30.6-17.7 40.9-30.9-.2.1-.4.1-.5.2z"
+                    />
+                    <path
+                      fill="#028BB8"
+                      d="M18.7 71.8c.4 3.3 1.4 6.4 2.9 9.3l.8 1.5c.5.9 1.1 1.7 1.7 2.6 3 .2 5.7.3 8.2.2 4.9-.1 8.9-.7 12-1.7.5-.2.9.1 1.1.5.2.5-.1.9-.5 1.1-.4.1-.8.3-1.3.4-2.4.7-5.2 1.2-8.5 1.4h-.4c-1.3.1-2.7.1-4.1.1-1.6 0-3.2 0-4.9-.1 6 6.8 15.5 10.8 27.3 10.8 21.4 0 40-8.1 50.8-26H18.7v-.1z"
+                    />
+                    <path
+                      fill="#019BC6"
+                      d="M23.5 71.8c1.3 5.8 4.3 10.4 8.8 13.5 4.9-.1 8.9-.7 12-1.7.5-.2.9.1 1.1.5.2.5-.1.9-.5 1.1-.4.1-.8.3-1.3.4-2.4.7-5.2 1.2-8.6 1.4 8.5 4.4 20.8 4.3 34.9-1.1 8.5-3.3 16.8-8.2 24.2-14.1H23.5z"
+                    />
+                    <path
+                      fill-rule="evenodd"
+                      clip-rule="evenodd"
+                      fill="#00ACD3"
+                      d="M28.4 52.7h9.8v9.8h-9.8v-9.8zm.8.8h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm3-12h9.8v9.8h-9.8v-9.8zm.9.8h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1z"
+                    />
+                    <path
+                      fill-rule="evenodd"
+                      clip-rule="evenodd"
+                      fill="#23C2EE"
+                      d="M39.6 52.7h9.8v9.8h-9.8v-9.8zm.9.8h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1z"
+                    />
+                    <path
+                      fill-rule="evenodd"
+                      clip-rule="evenodd"
+                      fill="#00ACD3"
+                      d="M50.9 52.7h9.8v9.8h-9.8v-9.8zm.8.8h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1z"
+                    />
+                    <path
+                      fill-rule="evenodd"
+                      clip-rule="evenodd"
+                      fill="#23C2EE"
+                      d="M50.9 41.5h9.8v9.8h-9.8v-9.8zm.8.8h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm3.1 10.4H72v9.8h-9.8v-9.8zm.8.8h.8v8.1H63v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1z"
+                    />
+                    <path
+                      fill-rule="evenodd"
+                      clip-rule="evenodd"
+                      fill="#00ACD3"
+                      d="M62.2 41.5H72v9.8h-9.8v-9.8zm.8.8h.8v8.1H63v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1z"
+                    />
+                    <path
+                      fill-rule="evenodd"
+                      clip-rule="evenodd"
+                      fill="#23C2EE"
+                      d="M62.2 30.2H72V40h-9.8v-9.8zm.8.8h.8v8.1H63V31zm1.5 0h.8v8.1h-.8V31zm1.4 0h.8v8.1h-.8V31zm1.5 0h.8v8.1h-.8V31zm1.5 0h.8v8.1h-.8V31zm1.5 0h.8v8.1h-.8V31z"
+                    />
+                    <path
+                      fill-rule="evenodd"
+                      clip-rule="evenodd"
+                      fill="#00ACD3"
+                      d="M73.5 52.7h9.8v9.8h-9.8v-9.8zm.8.8h.8v8.1h-.8v-8.1zm1.4 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1zm1.5 0h.8v8.1h-.8v-8.1z"
+                    />
+                    <path
+                      fill-rule="evenodd"
+                      clip-rule="evenodd"
+                      fill="#D4EEF1"
+                      d="M48.8 78.3c1.5 0 2.7 1.2 2.7 2.7 0 1.5-1.2 2.7-2.7 2.7-1.5 0-2.7-1.2-2.7-2.7 0-1.5 1.2-2.7 2.7-2.7"
+                    />
+                    <path
+                      fill-rule="evenodd"
+                      clip-rule="evenodd"
+                      fill="#3A4D54"
+                      d="M48.8 79.1c.2 0 .5 0 .7.1-.2.1-.4.4-.4.7 0 .4.4.8.8.8.3 0 .6-.2.7-.4.1.2.1.5.1.7 0 1.1-.9 1.9-1.9 1.9-1.1 0-1.9-.9-1.9-1.9 0-1 .8-1.9 1.9-1.9M1.1 72.8h125.4c-2.7-.7-8.6-1.6-7.7-5.2-5 5.7-16.9 4-20 1.2-3.4 4.9-23 3-24.3-.8-4.2 5-17.3 5-21.5 0-1.4 3.8-21 5.7-24.3.8-3 2.8-15 4.5-20-1.2 1.1 3.5-4.9 4.5-7.6 5.2"
+                    />
+                    <path
+                      fill="#BFDBE0"
+                      d="M56 97.8c-6.7-3.2-10.3-7.5-12.4-12.2-2.5.7-5.5 1.2-8.9 1.4-1.3.1-2.7.1-4.1.1-1.7 0-3.4 0-5.2-.1 6 6 13.6 10.7 27.5 10.8H56z"
+                    />
+                    <path
+                      fill="#D4EEF1"
+                      d="M46.1 89.9c-.9-1.3-1.8-2.8-2.5-4.3-2.5.7-5.5 1.2-8.9 1.4 2.3 1.2 5.7 2.4 11.4 2.9z"
+                    />
+                  </svg>
+                } @else if (
+                  selectedFile()?.path?.includes('mobile_flutter') ||
+                  selectedFile()?.language === 'dart'
+                ) {
+                  <svg
+                    class="w-4 h-4 shrink-0"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 128 128"
+                  >
+                    <g fill="#3FB6D3">
+                      <path
+                        d="M12.3 64.2L76.3 0h39.4L32.1 83.6zM76.3 128h39.4L81.6 93.9l34.1-34.8H76.3L42.2 93.5z"
+                      />
+                    </g>
+                    <path fill="#27AACD" d="M81.6 93.9l-20-20-19.4 19.6 19.4 19.6z" />
+                    <path fill="#19599A" d="M115.7 128L81.6 93.9l-20 19.2L76.3 128z" />
+                    <linearGradient
+                      id="flutter-code-preview-active"
+                      gradientUnits="userSpaceOnUse"
+                      x1="59.365"
+                      y1="116.36"
+                      x2="86.825"
+                      y2="99.399"
+                    >
+                      <stop offset="0" stop-color="#1b4e94" />
+                      <stop offset=".63" stop-color="#1a5497" />
+                      <stop offset="1" stop-color="#195a9b" />
+                    </linearGradient>
+                    <path
+                      fill="url(#flutter-code-preview-active)"
+                      d="M61.6 113.1l30.8-8.4-10.8-10.8z"
+                    />
+                  </svg>
+                } @else {
+                  <svg
+                    class="w-4 h-4 shrink-0"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 128 128"
+                  >
+                    <path
+                      d="M116.452 6.643a59.104 59.104 0 01-6.837 12.136A64.249 64.249 0 0064.205-.026C28.984-.026 0 28.982 0 64.242a64.316 64.316 0 0019.945 46.562l2.368 2.1a64.22 64.22 0 0041.358 15.122c33.487 0 61.637-26.24 64.021-59.683 1.751-16.371-3.051-37.077-11.24-61.7zM29.067 111.17a5.5 5.5 0 01-4.269 2.034c-3.018 0-5.487-2.484-5.487-5.502 0-3.017 2.485-5.501 5.487-5.501 1.25 0 2.485.433 3.452 1.234 2.351 1.9 2.718 5.384.817 7.735zm87.119-19.238c-15.843 21.122-49.68 14.003-71.376 15.02 0 0-3.852.234-7.721.867 0 0 1.45-.617 3.335-1.334 15.226-5.301 22.43-6.335 31.685-11.086 17.427-8.869 34.654-28.274 38.24-48.463-6.637 19.422-26.75 36.11-45.077 42.895-12.557 4.635-35.238 9.136-35.238 9.136l-.917-.484c-15.442-7.518-15.91-40.977 12.157-51.78 12.291-4.735 24.048-2.134 37.323-5.302 14.175-3.367 30.568-14.004 37.238-27.874 7.471 22.19 16.46 56.932.35 78.405z"
+                      fill="#77bc1f"
+                    />
+                  </svg>
+                }
+                <span class="truncate font-mono text-[12px] text-fg-muted">{{
+                  selectedFile()?.path
+                }}</span>
+                <span class="badge shrink-0 font-mono !py-0 !text-[10px] uppercase">
+                  {{ detectedLanguage() }}
+                </span>
+                <span class="shrink-0 text-[11px] text-fg-subtle">
+                  {{ lineNumbers().length }} lin
+                </span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button (click)="copyCode()" class="btn btn-secondary btn-xs">
+                  <ng-icon
+                    [name]="isCopied() ? 'heroCheck' : 'heroClipboardDocument'"
+                    class="text-sm"
+                    [class.text-success]="isCopied()"
+                  ></ng-icon>
+                  <span>{{
+                    isCopied()
+                      ? ('codeGen.copiedCode' | translate)
+                      : ('codeGen.copyCode' | translate)
+                  }}</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Código con Scroll y Resaltado de Sintaxis (highlight.js) -->
+            <div
+              class="flex-1 overflow-auto bg-bg font-mono text-[12px] leading-relaxed text-[#e6edf3] select-text"
+            >
+              <div class="flex min-w-full w-fit">
+                <!-- Gutter de números de línea sticky a la izquierda -->
+                <div
+                  class="sticky left-0 z-10 shrink-0 border-r border-line bg-bg py-4 pr-3 pl-4 text-right font-mono text-[12px] text-fg-subtle/60 select-none"
+                >
+                  @for (num of lineNumbers(); track num) {
+                    <div class="leading-relaxed">{{ num }}</div>
+                  }
+                </div>
+                <!-- Contenido de código con highlight.js (un solo contenedor de scroll) -->
+                <div class="flex-1 px-5 py-4 font-mono text-[12px]">
+                  <pre
+                    class="m-0 p-0 font-mono text-[12px] whitespace-pre"
+                  ><code class="hljs !bg-transparent !p-0 font-mono text-[12px] leading-relaxed" [innerHTML]="highlightedCode()"></code></pre>
+                </div>
+              </div>
+            </div>
+          } @else {
+            <div class="flex flex-1 items-center justify-center text-sm text-fg-subtle">
+              {{ 'codeGen.selectFile' | translate }}
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- 5. Footer con Acciones de Descarga -->
+      <div
+        class="flex shrink-0 flex-col items-center justify-between gap-3 border-t border-line px-5 py-3 sm:flex-row"
+      >
+        <div class="flex min-w-0 items-center gap-2 text-xs text-fg-muted">
+          <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400"></span>
+          <span>
+            @if (selectedPlatform() === 'all') {
+              {{ 'codeGen.readyStatus.all' | translate }}
+            } @else if (selectedPlatform() === 'flutter') {
+              {{ 'codeGen.readyStatus.flutter' | translate }}
+            } @else {
+              {{ 'codeGen.readyStatus.springBoot' | translate: { port: serverPort() } }}
+            }
+          </span>
+        </div>
+
+        <div
+          class="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:shrink-0 sm:flex-nowrap"
+        >
+          <button
+            (click)="generatePreview()"
+            [disabled]="isGenerating() || !diagramId()"
+            class="btn btn-secondary"
+          >
+            <ng-icon
+              name="heroArrowPath"
+              class="text-base"
+              [ngClass]="{ 'animate-spin': isGenerating() }"
+            ></ng-icon>
+            <span>{{ 'codeGen.refresh' | translate }}</span>
+          </button>
+
+          <button
+            data-tour="codegen-download"
+            (click)="downloadZip()"
+            [disabled]="isDownloading() || files().length === 0 || !diagramId()"
+            class="btn btn-primary"
+          >
+            <ng-icon name="heroArrowDownTray" class="text-base"></ng-icon>
+            <span>
+              {{
+                isDownloading()
+                  ? ('codeGen.generatingZip' | translate)
+                  : selectedPlatform() === 'all'
+                    ? ('codeGen.downloadFullstack' | translate)
+                    : ('codeGen.downloadZip' | translate)
+              }}
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}

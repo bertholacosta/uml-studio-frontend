@@ -1,0 +1,6 @@
+# Finales de línea Unix en todo el repositorio (los scripts de nginx los necesitan en el contenedor)
+* text=auto eol=lf
+
+# Binarios
+*.png binary
+*.ico binary

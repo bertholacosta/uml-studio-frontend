@@ -1,0 +1,38 @@
+# ---------- Dependencias ----------
+node_modules/
+
+# ---------- Compilación ----------
+dist/
+out-tsc/
+tmp/
+
+# ---------- Caché de Angular ----------
+.angular/
+.sass-cache/
+
+# ---------- Variables de entorno ----------
+.env
+.env.*
+
+# ---------- Pruebas ----------
+coverage/
+__screenshots__/
+
+# ---------- Registros ----------
+*.log
+
+# ---------- Editores ----------
+.vscode/
+.idea/
+.history/
+*.sublime-workspace
+
+# ---------- Sistema operativo ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- Herramientas de IA ----------
+.claude/
+CLAUDE.md
+AGENTS.md

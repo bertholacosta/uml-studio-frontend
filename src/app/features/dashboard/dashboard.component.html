@@ -1,0 +1,226 @@
+<div class="flex min-h-screen flex-col bg-bg text-fg">
+  <app-header />
+
+  <section class="glow-top border-b border-line">
+    <div class="mx-auto max-w-7xl px-4 pt-16 pb-12 sm:px-6">
+      <p class="eyebrow mb-5">{{ 'dashboard.eyebrow' | translate }}</p>
+      <h1 class="display text-5xl leading-[1.05] sm:text-6xl">
+        {{ 'dashboard.greeting' | translate: { name: '' }
+        }}<span class="accent-serif">{{ firstName() }}</span>
+      </h1>
+      <p class="mt-5 max-w-xl text-[17px] text-fg-muted">{{ 'dashboard.subtitle' | translate }}</p>
+    </div>
+  </section>
+
+  <main
+    class="mx-auto grid w-full max-w-7xl flex-1 grid-cols-1 gap-6 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:items-start"
+  >
+    <!-- Primeros pasos -->
+    <section
+      class="card overflow-hidden"
+      data-tour="getting-started"
+      aria-labelledby="getting-started-title"
+    >
+      <header class="flex items-start justify-between gap-4 px-6 pt-6">
+        <div>
+          <h2 id="getting-started-title" class="text-xl font-medium tracking-[-0.01em]">
+            {{ 'dashboard.gettingStarted' | translate }}
+          </h2>
+          <p class="mt-1 font-mono text-[11px] tracking-[0.06em] text-fg-subtle uppercase">
+            {{ 'dashboard.progress' | translate: { done: doneCount(), total: tour.tasks.length } }}
+          </p>
+        </div>
+
+        @if (hasAttempted()) {
+          <div class="relative">
+            <button
+              type="button"
+              (click)="isMenuOpen.set(!isMenuOpen())"
+              [attr.aria-expanded]="isMenuOpen()"
+              [title]="'dashboard.options' | translate"
+              class="btn btn-ghost btn-icon !-mr-2"
+            >
+              <ng-icon name="heroEllipsisVertical" class="text-lg"></ng-icon>
+            </button>
+            @if (isMenuOpen()) {
+              <div class="fixed inset-0 z-40" (click)="isMenuOpen.set(false)"></div>
+              <div class="menu right-0 mt-1 w-56">
+                <button type="button" (click)="startTour()" class="menu-item">
+                  <ng-icon name="heroArrowPath" class="text-base"></ng-icon>
+                  {{ (tour.allTasksDone() ? 'dashboard.replay' : 'dashboard.restart') | translate }}
+                </button>
+              </div>
+            }
+          </div>
+        }
+      </header>
+
+      <div class="mx-6 mt-4 h-0.5 overflow-hidden rounded-full bg-line">
+        <div
+          class="h-full bg-accent transition-[width] duration-500"
+          [style.width.%]="progressPercent()"
+        ></div>
+      </div>
+
+      @if (tour.allTasksDone()) {
+        <!-- Estado completado -->
+        <div class="flex flex-col items-center px-6 pt-10 pb-12 text-center">
+          <svg width="120" height="104" viewBox="0 0 120 104" fill="none" aria-hidden="true">
+            <path
+              d="M0 26h120M0 52h120M0 78h120M30 0v104M60 0v104M90 0v104"
+              stroke="var(--color-line)"
+              stroke-width="1"
+            />
+            <rect
+              x="22"
+              y="14"
+              width="56"
+              height="62"
+              rx="4"
+              fill="var(--color-bg)"
+              stroke="var(--color-fg)"
+              stroke-width="2.5"
+            />
+            <path d="M22 30h56M22 48h56" stroke="var(--color-fg)" stroke-width="2.5" />
+            <path
+              d="M40 22h20"
+              stroke="var(--color-accent)"
+              stroke-width="2.5"
+              stroke-linecap="round"
+            />
+            <path
+              d="M30 39h22M30 57h14M30 65h18"
+              stroke="var(--color-fg-subtle)"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <circle cx="80" cy="72" r="18" fill="var(--color-accent)" />
+            <path
+              d="M72 72.5l5.5 5.5L89 66.5"
+              stroke="var(--color-ink)"
+              stroke-width="3.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <p class="mt-6 text-lg font-medium">{{ 'dashboard.allDoneTitle' | translate }}</p>
+          <p class="mt-1 text-sm text-fg-muted">{{ 'dashboard.allDoneBody' | translate }}</p>
+        </div>
+      } @else {
+        <!-- Tareas -->
+        <p class="px-6 pt-5 text-sm text-fg-muted">{{ 'dashboard.intro' | translate }}</p>
+
+        <ol class="mt-5 border-t border-line">
+          @for (task of tour.tasks; track task.id; let i = $index) {
+            <li class="flex items-center gap-4 border-b border-line px-6 py-4 last:border-b-0">
+              @if (isTaskDone(task.id)) {
+                <span
+                  class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent text-ink"
+                >
+                  <ng-icon name="heroCheck" class="text-sm"></ng-icon>
+                </span>
+              } @else {
+                <span
+                  class="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-line-strong font-mono text-[11px] text-fg-muted"
+                >
+                  {{ i + 1 }}
+                </span>
+              }
+              <div class="min-w-0">
+                <p
+                  class="text-sm font-medium"
+                  [class.text-fg-muted]="isTaskDone(task.id)"
+                  [class.line-through]="isTaskDone(task.id)"
+                  [class.decoration-line-strong]="isTaskDone(task.id)"
+                >
+                  {{ task.title[lang()] }}
+                </p>
+                <p class="mt-0.5 truncate text-[13px] text-fg-subtle">
+                  {{ task.description[lang()] }}
+                </p>
+              </div>
+            </li>
+          }
+        </ol>
+
+        <div
+          class="flex items-center justify-between gap-3 border-t border-line bg-bg/40 px-6 py-4"
+        >
+          @if (tour.checkpoint()) {
+            <span class="min-w-0 truncate text-[13px] text-fg-subtle">{{
+              'dashboard.leftAt' | translate: { step: leftAtTitle() }
+            }}</span>
+            <button type="button" (click)="continueTour()" class="btn btn-primary shrink-0">
+              <ng-icon name="heroPlay" class="text-base"></ng-icon>
+              {{ 'dashboard.continue' | translate }}
+            </button>
+          } @else {
+            <span class="font-mono text-[11px] text-fg-subtle">~5 min</span>
+            <button type="button" (click)="startTour()" class="btn btn-primary shrink-0">
+              <ng-icon
+                [name]="hasAttempted() ? 'heroArrowPath' : 'heroPlay'"
+                class="text-base"
+              ></ng-icon>
+              {{ (hasAttempted() ? 'dashboard.restart' : 'dashboard.start') | translate }}
+            </button>
+          }
+        </div>
+      }
+    </section>
+
+    <!-- Proyectos recientes -->
+    <section class="card overflow-hidden" aria-labelledby="recent-title">
+      <header class="flex items-center justify-between gap-3 px-6 pt-6 pb-4">
+        <h2 id="recent-title" class="text-xl font-medium tracking-[-0.01em]">
+          {{ 'dashboard.recentProjects' | translate }}
+        </h2>
+        <a
+          routerLink="/projects"
+          class="flex items-center gap-1 text-sm text-fg-muted hover:text-fg"
+        >
+          {{ 'dashboard.viewAll' | translate }}
+          <ng-icon name="heroArrowRight" class="text-sm"></ng-icon>
+        </a>
+      </header>
+
+      @if (recentProjects().length > 0) {
+        <ul class="border-t border-line">
+          @for (project of recentProjects(); track project.id) {
+            <li class="border-b border-line last:border-b-0">
+              <button
+                type="button"
+                (click)="openProject(project)"
+                class="group flex w-full cursor-pointer items-center gap-4 px-6 py-4 text-left transition-colors hover:bg-elevated"
+              >
+                <span
+                  class="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-line text-fg-muted group-hover:text-accent"
+                >
+                  <ng-icon name="heroCube" class="text-base"></ng-icon>
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-sm font-medium">{{ project.name }}</span>
+                  <span class="block truncate font-mono text-[11px] text-fg-subtle">{{
+                    project.basePackage
+                  }}</span>
+                </span>
+                <ng-icon
+                  name="heroArrowRight"
+                  class="text-sm text-fg-subtle opacity-0 transition-opacity group-hover:opacity-100"
+                ></ng-icon>
+              </button>
+            </li>
+          }
+        </ul>
+      } @else {
+        <div
+          class="line-grid flex flex-col items-center border-t border-line px-6 py-12 text-center"
+        >
+          <p class="text-sm text-fg-muted">{{ 'dashboard.noProjects' | translate }}</p>
+          <a routerLink="/projects" class="btn btn-secondary btn-sm mt-4">{{
+            'dashboard.newProject' | translate
+          }}</a>
+        </div>
+      }
+    </section>
+  </main>
+</div>

@@ -1,0 +1,467 @@
+<!-- Asistente (estilo Miro): barra abajo en el centro con conversación plegable, o acoplado como panel a la derecha -->
+@if (isOpen()) {
+  <div
+    data-tour="ai-panel"
+    class="flex flex-col gap-2"
+    [ngClass]="
+      dock() === 'side'
+        ? 'relative h-full w-[380px] max-w-[45vw] shrink-0 p-2 pl-3'
+        : 'absolute bottom-4 left-1/2 z-40 w-[min(620px,calc(100%-460px))] min-w-[360px] -translate-x-1/2'
+    "
+  >
+    <input
+      #imageInput
+      type="file"
+      accept="image/png,image/jpeg,image/webp,image/jpg"
+      (change)="onImageSelected($event)"
+      class="hidden"
+    />
+
+    <!-- Conversación -->
+    @if (isExpanded() || dock() === 'side') {
+      <div
+        class="flex flex-col overflow-hidden"
+        [ngClass]="dock() === 'side' ? 'min-h-0 flex-1' : 'island max-h-[min(460px,55vh)]'"
+      >
+        <div
+          class="flex shrink-0 items-center justify-between pr-1.5 pl-3.5"
+          [ngClass]="dock() === 'side' ? 'h-11 pl-1.5' : 'h-10 border-b border-line'"
+        >
+          <span class="flex items-center gap-2 text-[13px] font-semibold text-fg">
+            <ng-icon name="heroSparkles" class="text-sm text-accent-fg"></ng-icon>
+            {{ 'ai.title' | translate }}
+          </span>
+          <div class="flex items-center gap-0.5">
+            @if (aiChatMessages().length && canEdit()) {
+              <button
+                type="button"
+                (click)="newChat()"
+                [title]="'ai.newChat' | translate"
+                class="btn btn-ghost btn-icon !h-7 !w-7"
+              >
+                <ng-icon name="heroPencilSquare" class="text-sm"></ng-icon>
+              </button>
+            }
+            <!-- Acoplar a la derecha / volver abajo -->
+            <button
+              type="button"
+              (click)="toggleDock()"
+              [title]="(dock() === 'side' ? 'ai.dockBottom' : 'ai.dockSide') | translate"
+              class="btn btn-ghost btn-icon !h-7 !w-7"
+            >
+              <svg
+                viewBox="0 0 20 20"
+                class="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                aria-hidden="true"
+              >
+                <rect x="2.75" y="3.75" width="14.5" height="12.5" rx="2" />
+                @if (dock() === 'side') {
+                  <rect
+                    x="5"
+                    y="11.5"
+                    width="10"
+                    height="2.5"
+                    rx="0.75"
+                    fill="currentColor"
+                    stroke="none"
+                  />
+                } @else {
+                  <rect
+                    x="12"
+                    y="6"
+                    width="3"
+                    height="8"
+                    rx="0.75"
+                    fill="currentColor"
+                    stroke="none"
+                  />
+                }
+              </svg>
+            </button>
+            @if (dock() === 'bottom') {
+              <button
+                type="button"
+                (click)="isExpanded.set(false)"
+                [title]="'ai.collapse' | translate"
+                class="btn btn-ghost btn-icon !h-7 !w-7"
+              >
+                <ng-icon name="heroChevronDown" class="text-sm"></ng-icon>
+              </button>
+            } @else {
+              <button
+                type="button"
+                (click)="closePanel.emit()"
+                [title]="'toolbar.hideAssistant' | translate"
+                class="btn btn-ghost btn-icon !h-7 !w-7"
+              >
+                <ng-icon name="heroXMark" class="text-sm"></ng-icon>
+              </button>
+            }
+          </div>
+        </div>
+
+        <div
+          #chatScrollContainer
+          class="min-h-0 flex-1 overflow-y-auto py-3.5"
+          [ngClass]="dock() === 'side' ? 'px-1.5' : 'px-4'"
+        >
+          @if (isLoadingConversation() && !aiChatMessages().length) {
+            <p class="text-[13px] text-fg-subtle">{{ 'ai.loading' | translate }}</p>
+          } @else if (!aiChatMessages().length && !isAiProcessing()) {
+            <!-- Inicio: qué puede hacer y sugerencias -->
+            <h3 class="text-[15px] font-semibold text-fg">{{ 'ai.emptyTitle' | translate }}</h3>
+            <p class="mt-1 text-[13px] leading-relaxed text-fg-muted">
+              {{ 'ai.emptyBody' | translate }}
+            </p>
+            <div class="mt-3 space-y-1.5">
+              @for (key of suggestionKeys; track key) {
+                <button type="button" (click)="useSuggestion(key)" class="ai-suggestion">
+                  <span class="min-w-0 flex-1">{{ key | translate }}</span>
+                  <ng-icon
+                    name="heroArrowUpRight"
+                    class="shrink-0 text-xs text-fg-subtle"
+                  ></ng-icon>
+                </button>
+              }
+            </div>
+          } @else {
+            <div class="space-y-4">
+              @for (msg of aiChatMessages(); track msg.id) {
+                @if (msg.role === 'user' && msg.author.userId === myUserId) {
+                  <!-- Mis mensajes, a la derecha -->
+                  <div class="flex flex-col items-end gap-1.5" [class.opacity-60]="msg.pending">
+                    @if (msg.image) {
+                      <img
+                        [src]="msg.image"
+                        class="max-h-40 max-w-[80%] rounded-xl border border-line object-contain"
+                        alt=""
+                      />
+                    }
+                    <div class="ai-bubble-user">
+                      <p class="whitespace-pre-wrap">{{ msg.text }}</p>
+                    </div>
+                  </div>
+                } @else if (msg.role === 'user') {
+                  <!-- Mensajes de otras personas de la pizarra, con su nombre y color -->
+                  <div class="flex items-start gap-2">
+                    <span class="ai-avatar" [style.background]="colorOf(msg)">
+                      {{ initialOf(msg.author.userName) }}
+                    </span>
+                    <div class="flex min-w-0 flex-col items-start gap-1">
+                      <span class="text-[11px] text-fg-subtle">
+                        <span class="font-medium" [style.color]="colorOf(msg)">
+                          {{ msg.author.userName }}
+                        </span>
+                        · {{ msg.createdAt | date: 'HH:mm' }}
+                      </span>
+                      @if (msg.image) {
+                        <img
+                          [src]="msg.image"
+                          class="max-h-40 max-w-full rounded-xl border border-line object-contain"
+                          alt=""
+                        />
+                      }
+                      <div class="ai-bubble-peer">
+                        <p class="whitespace-pre-wrap">{{ msg.text }}</p>
+                      </div>
+                    </div>
+                  </div>
+                } @else {
+                  <div class="space-y-2">
+                    <div class="flex items-center gap-2 text-[11px] text-fg-subtle">
+                      <ng-icon name="heroSparkles" class="text-xs text-accent-fg"></ng-icon>
+                      <span class="font-medium text-fg-muted">{{ 'ai.title' | translate }}</span>
+                      @if (askerOf(msg); as asker) {
+                        <span>{{ 'ai.replyingTo' | translate }} {{ asker }}</span>
+                      }
+                      <span>· {{ msg.createdAt | date: 'HH:mm' }}</span>
+                      @if (msg.model) {
+                        <span class="truncate" [title]="msg.latencyMs ? msg.latencyMs + ' ms' : ''">
+                          · {{ msg.model }}
+                        </span>
+                      }
+                    </div>
+
+                    @if (msg.status === 'clarification') {
+                      <div class="ai-note ai-note-warning">
+                        <p class="mb-1 text-[12px] font-semibold">
+                          {{ 'ai.needsClarification' | translate }}
+                        </p>
+                        <p class="whitespace-pre-wrap">
+                          {{ msg.text || ('ai.clarificationDefault' | translate) }}
+                        </p>
+                      </div>
+                    } @else if (msg.status === 'error') {
+                      <div class="ai-note ai-note-error">
+                        <p class="whitespace-pre-wrap">{{ msg.text }}</p>
+                      </div>
+                    } @else {
+                      <p
+                        class="ai-reply text-[13px] leading-relaxed whitespace-pre-wrap text-fg"
+                        [innerHTML]="formatReply(msg.text)"
+                      ></p>
+                      @if (msg.intent === 'propose' && msg.proposal) {
+                        <!-- Propuesta: cualquiera con permiso de edición puede aplicarla -->
+                        <div class="ai-changes ai-proposal">
+                          <ng-icon
+                            name="heroLightBulb"
+                            class="mt-px shrink-0 text-sm text-accent-fg"
+                          ></ng-icon>
+                          <div class="min-w-0 flex-1">
+                            <p
+                              class="text-[11px] font-semibold tracking-wide text-accent-fg uppercase"
+                            >
+                              {{ 'ai.proposal' | translate }}
+                            </p>
+                            <p class="mt-0.5 text-[12.5px] text-fg-muted">
+                              {{ msg.changesSummary }}
+                            </p>
+                            @if (msg.proposal.state === 'applied') {
+                              <p class="mt-1.5 flex items-center gap-1 text-[12px] text-fg-muted">
+                                <ng-icon name="heroCheck" class="text-sm text-accent-fg"></ng-icon>
+                                {{ 'ai.appliedBy' | translate }}
+                                {{ msg.proposal.appliedBy?.userName }}
+                              </p>
+                            } @else if (canEdit()) {
+                              <button
+                                type="button"
+                                (click)="applyProposal(msg)"
+                                [disabled]="applyingIds().has(msg.id)"
+                                class="btn btn-primary mt-2 !h-7 !px-2.5 !text-[12px]"
+                              >
+                                {{
+                                  (applyingIds().has(msg.id) ? 'ai.applying' : 'ai.applyProposal')
+                                    | translate
+                                }}
+                              </button>
+                            } @else {
+                              <p class="mt-1.5 text-[12px] text-fg-subtle">
+                                {{ 'ai.proposalViewer' | translate }}
+                              </p>
+                            }
+                          </div>
+                        </div>
+                      } @else if (msg.changesSummary && msg.changesSummary !== msg.text) {
+                        <div class="ai-changes">
+                          <ng-icon
+                            name="heroCheck"
+                            class="mt-px shrink-0 text-sm text-accent-fg"
+                          ></ng-icon>
+                          <div class="min-w-0">
+                            <p
+                              class="text-[11px] font-semibold tracking-wide text-accent-fg uppercase"
+                            >
+                              {{ 'ai.changesApplied' | translate }}
+                            </p>
+                            <p class="mt-0.5 text-[12.5px] text-fg-muted">
+                              {{ msg.changesSummary }}
+                            </p>
+                          </div>
+                        </div>
+                      }
+                    }
+                  </div>
+                }
+              }
+
+              @if (isAiProcessing() || collaboration.aiBusyFor() !== null) {
+                <div class="flex items-center gap-2.5 text-[13px] text-fg-muted">
+                  <span class="flex gap-1">
+                    <span
+                      class="h-1.5 w-1.5 animate-bounce rounded-full bg-accent-fg [animation-delay:-0.3s]"
+                    ></span>
+                    <span
+                      class="h-1.5 w-1.5 animate-bounce rounded-full bg-accent-fg [animation-delay:-0.15s]"
+                    ></span>
+                    <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-accent-fg"></span>
+                  </span>
+                  @if (collaboration.aiBusyFor(); as busyFor) {
+                    {{ 'ai.thinkingFor' | translate }} {{ firstName(busyFor) }}…
+                  } @else {
+                    {{ 'ai.thinking' | translate }}
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Barra de texto -->
+    <div
+      (paste)="onPasteImage($event)"
+      (dragover)="$event.preventDefault()"
+      (drop)="onDropImage($event)"
+      class="island ai-prompt-bar"
+    >
+      @if (attachedImageBase64() || isVoiceListening()) {
+        <div class="flex flex-wrap items-center gap-2 px-2 pt-2">
+          @if (attachedImageBase64()) {
+            <div
+              class="flex min-w-0 items-center gap-2 rounded-lg border border-line bg-bg py-1 pr-1 pl-1"
+            >
+              <img [src]="attachedImageBase64()" class="h-8 w-8 rounded-md object-cover" alt="" />
+              <span class="truncate text-xs text-fg-muted">
+                {{ 'ai.imageReady' | translate }}
+              </span>
+              <button
+                type="button"
+                (click)="removeAttachedImage()"
+                [title]="'ai.removeImage' | translate"
+                class="btn btn-ghost btn-icon !h-6 !w-6"
+              >
+                <ng-icon name="heroXMark" class="text-xs"></ng-icon>
+              </button>
+            </div>
+          }
+          @if (isVoiceListening()) {
+            <span
+              class="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs text-red-200"
+            >
+              <span class="h-2 w-2 animate-pulse rounded-full bg-red-400"></span>
+              {{ 'ai.listening' | translate }}
+            </span>
+          }
+        </div>
+      }
+
+      <div class="flex items-end gap-1 p-1.5">
+        <!-- «+»: adjuntar una imagen (foto, archivo o captura); solo quien puede editar -->
+        <div class="relative shrink-0" [class.hidden]="!canEdit()">
+          <button
+            type="button"
+            (click)="isPlusMenuOpen.set(!isPlusMenuOpen())"
+            [title]="'ai.more' | translate"
+            [class.!bg-elevated]="isPlusMenuOpen()"
+            class="btn btn-ghost btn-icon !h-9 !w-9 !rounded-xl"
+          >
+            <ng-icon name="heroPlus" class="text-lg"></ng-icon>
+          </button>
+
+          @if (isPlusMenuOpen()) {
+            <div (click)="isPlusMenuOpen.set(false)" class="fixed inset-0 z-40"></div>
+            <div class="menu bottom-full left-0 mb-2 w-60">
+              <button
+                type="button"
+                (click)="triggerImageInput(); isPlusMenuOpen.set(false)"
+                class="menu-item"
+              >
+                <ng-icon name="heroPhoto" class="text-base"></ng-icon>
+                <span>{{ 'ai.attachImage' | translate }}</span>
+              </button>
+              <button
+                type="button"
+                (click)="openWebcamModal(); isPlusMenuOpen.set(false)"
+                class="menu-item"
+              >
+                <ng-icon name="heroCamera" class="text-base"></ng-icon>
+                <span>{{ 'ai.takePhoto' | translate }}</span>
+              </button>
+              <button
+                type="button"
+                (click)="pasteFromClipboard(); isPlusMenuOpen.set(false)"
+                class="menu-item"
+              >
+                <ng-icon name="heroClipboard" class="text-base"></ng-icon>
+                <span>{{ 'ai.pasteImage' | translate }}</span>
+              </button>
+            </div>
+          }
+        </div>
+
+        <textarea
+          #promptInput
+          [ngModel]="aiPrompt()"
+          (ngModelChange)="aiPrompt.set($event)"
+          (keydown)="onAiInputKeyDown($any($event))"
+          (focus)="onPromptFocus()"
+          (input)="autoGrow()"
+          rows="1"
+          [placeholder]="
+            (attachedImageBase64() ? 'ai.placeholderImage' : 'ai.placeholder') | translate
+          "
+          class="block max-h-32 min-h-9 flex-1 resize-none bg-transparent px-1.5 py-2 text-[14px] leading-5 text-fg outline-none placeholder:text-fg-subtle"
+        ></textarea>
+
+        <button
+          type="button"
+          (click)="toggleVoiceRecognition()"
+          [title]="(isVoiceListening() ? 'ai.stopDictation' : 'ai.dictate') | translate"
+          [ngClass]="isVoiceListening() ? '!bg-red-500/15 !text-red-300' : ''"
+          class="btn btn-ghost btn-icon !h-9 !w-9 shrink-0 !rounded-xl"
+        >
+          <ng-icon
+            [name]="isVoiceListening() ? 'heroStop' : 'heroMicrophone'"
+            class="text-base"
+          ></ng-icon>
+        </button>
+
+        @if (aiPrompt().trim() || attachedImageBase64() || isAiProcessing()) {
+          <button
+            type="button"
+            (click)="applyAiPrompt()"
+            [disabled]="isAiProcessing() || (!aiPrompt().trim() && !attachedImageBase64())"
+            [title]="'ai.send' | translate"
+            class="btn btn-primary btn-icon !h-9 !w-9 shrink-0 !rounded-xl"
+          >
+            <ng-icon name="heroArrowUp" class="text-base"></ng-icon>
+          </button>
+        }
+
+        @if (dock() === 'bottom' && !isExpanded()) {
+          <button
+            type="button"
+            (click)="expand()"
+            [title]="'ai.expand' | translate"
+            class="btn btn-ghost btn-icon relative !h-9 !w-9 shrink-0 !rounded-xl"
+          >
+            <ng-icon name="heroChevronUp" class="text-base"></ng-icon>
+            @if (unreadCount()) {
+              <span class="ai-unread">{{ unreadCount() }}</span>
+            }
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Modal: foto de un boceto con la cámara -->
+@if (showWebcamModal()) {
+  <div class="modal-backdrop" (click)="closeWebcamModal()">
+    <div class="modal max-w-lg" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <div>
+          <h3 class="text-base font-semibold">{{ 'ai.webcamTitle' | translate }}</h3>
+          <p class="mt-0.5 text-sm text-fg-muted">{{ 'ai.webcamBody' | translate }}</p>
+        </div>
+        <button type="button" (click)="closeWebcamModal()" class="btn btn-ghost btn-icon">
+          <ng-icon name="heroXMark" class="text-lg"></ng-icon>
+        </button>
+      </div>
+
+      <div class="bg-black p-3">
+        <video
+          #webcamVideo
+          autoplay
+          playsinline
+          class="max-h-[340px] w-full rounded-lg bg-black object-contain"
+        ></video>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" (click)="closeWebcamModal()" class="btn btn-secondary">
+          {{ 'common.cancel' | translate }}
+        </button>
+        <button type="button" (click)="captureWebcamPhoto()" class="btn btn-primary">
+          <ng-icon name="heroCamera" class="text-base"></ng-icon>
+          {{ 'ai.webcamCapture' | translate }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

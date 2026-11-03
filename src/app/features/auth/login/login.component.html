@@ -1,0 +1,161 @@
+<div class="relative flex min-h-screen bg-bg">
+  <!-- Panel de marca (solo escritorio) -->
+  <aside
+    class="glow-top relative hidden w-[50%] max-w-[720px] flex-col justify-between overflow-hidden border-r border-line lg:flex"
+  >
+    <div
+      class="line-grid pointer-events-none absolute inset-0 [mask-image:linear-gradient(to_bottom,black,transparent_85%)]"
+    ></div>
+
+    <div class="relative flex h-16 items-center border-b border-line px-12">
+      <app-brand-logo />
+    </div>
+
+    <div class="relative px-12">
+      <h2 class="display text-[52px] leading-[1.05]">
+        {{ 'auth.hero.title' | translate }}
+        <span class="accent-serif text-[1.08em]">{{ 'auth.hero.titleAccent' | translate }}</span>
+      </h2>
+      <p class="mt-6 max-w-md text-[17px] leading-relaxed text-fg-muted">
+        {{ 'auth.hero.subtitle' | translate }}
+      </p>
+    </div>
+
+    <ul class="relative grid grid-cols-3 divide-x divide-line border-t border-line">
+      <li class="px-8 py-7">
+        <span class="font-mono text-xs text-accent">01</span>
+        <p class="mt-3 text-sm leading-snug text-fg">{{ 'auth.hero.featureCollab' | translate }}</p>
+      </li>
+      <li class="px-8 py-7">
+        <span class="font-mono text-xs text-accent">02</span>
+        <p class="mt-3 text-sm leading-snug text-fg">{{ 'auth.hero.featureAi' | translate }}</p>
+      </li>
+      <li class="px-8 py-7">
+        <span class="font-mono text-xs text-accent">03</span>
+        <p class="mt-3 text-sm leading-snug text-fg">{{ 'auth.hero.featureCode' | translate }}</p>
+      </li>
+    </ul>
+  </aside>
+
+  <!-- Formulario -->
+  <main class="relative flex flex-1 flex-col">
+    <div class="flex h-16 items-center justify-between border-b border-line px-6 sm:px-10">
+      <app-brand-logo class="lg:invisible" [size]="28" />
+      <app-language-selector />
+    </div>
+
+    <div class="flex flex-1 items-center justify-center px-6 pb-16 sm:px-10">
+      <div class="w-full max-w-[380px]">
+        <div class="mb-10">
+          <h1 class="display text-4xl">{{ 'auth.login.title' | translate }}</h1>
+          <p class="mt-3 text-[15px] text-fg-muted">{{ 'auth.login.subtitle' | translate }}</p>
+        </div>
+
+        @if (authService.errorMessage()) {
+          <div class="alert alert-error mb-5" role="alert">
+            <svg
+              class="mt-0.5 shrink-0"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span>{{ authService.errorMessage() }}</span>
+          </div>
+        }
+
+        <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="space-y-5" novalidate>
+          <div>
+            <label class="label" for="login-email">{{ 'auth.login.emailLabel' | translate }}</label>
+            <input
+              id="login-email"
+              type="email"
+              autocomplete="email"
+              formControlName="email"
+              [placeholder]="'auth.login.emailPlaceholder' | translate"
+              [class.input-error]="
+                loginForm.get('email')?.invalid && loginForm.get('email')?.touched
+              "
+              class="input"
+            />
+            @if (loginForm.get('email')?.invalid && loginForm.get('email')?.touched) {
+              <p class="field-error">{{ 'auth.login.emailInvalid' | translate }}</p>
+            }
+          </div>
+
+          <div>
+            <label class="label" for="login-password">{{
+              'auth.login.passwordLabel' | translate
+            }}</label>
+            <div class="relative">
+              <input
+                id="login-password"
+                [type]="showPassword() ? 'text' : 'password'"
+                autocomplete="current-password"
+                formControlName="password"
+                [placeholder]="'auth.login.passwordPlaceholder' | translate"
+                [class.input-error]="
+                  loginForm.get('password')?.invalid && loginForm.get('password')?.touched
+                "
+                class="input pr-11"
+              />
+              <button
+                type="button"
+                (click)="togglePassword()"
+                [attr.aria-label]="
+                  showPassword()
+                    ? ('auth.login.hidePassword' | translate)
+                    : ('auth.login.showPassword' | translate)
+                "
+                [title]="
+                  showPassword()
+                    ? ('auth.login.hidePassword' | translate)
+                    : ('auth.login.showPassword' | translate)
+                "
+                class="absolute top-1/2 right-1.5 -translate-y-1/2 btn btn-ghost btn-icon !h-7 !w-7 text-fg-muted hover:text-fg"
+              >
+                <ng-icon
+                  [name]="showPassword() ? 'heroEyeSlash' : 'heroEye'"
+                  class="text-base"
+                ></ng-icon>
+              </button>
+            </div>
+            @if (loginForm.get('password')?.invalid && loginForm.get('password')?.touched) {
+              <p class="field-error">{{ 'auth.login.passwordInvalid' | translate }}</p>
+            }
+          </div>
+
+          <button
+            type="submit"
+            [disabled]="authService.isLoading()"
+            class="btn btn-primary h-11 w-full text-[15px]"
+          >
+            @if (authService.isLoading()) {
+              <span class="spinner"></span>
+              <span>{{ 'auth.login.submitting' | translate }}</span>
+            } @else {
+              <span>{{ 'auth.login.submit' | translate }}</span>
+            }
+          </button>
+        </form>
+
+        <p class="mt-8 text-center text-sm text-fg-muted">
+          {{ 'auth.login.noAccount' | translate }}
+          <a
+            routerLink="/register"
+            class="ml-1 font-medium text-fg underline decoration-line-strong underline-offset-4 hover:decoration-fg"
+          >
+            {{ 'auth.login.createAccount' | translate }}
+          </a>
+        </p>
+      </div>
+    </div>
+  </main>
+</div>
