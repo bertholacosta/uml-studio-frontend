@@ -419,6 +419,9 @@ export const en = {
     placeholderImage: 'Instruction for the image (optional)…',
     thinking: 'Trazo is thinking…',
     thinkingFor: 'Trazo is replying to',
+    wakingUp:
+      'Starting the model server: after a while without use, the first reply can take up to a minute.',
+    noReply: 'Trazo did not reply in time. Try again in a few seconds.',
     replyingTo: 'to',
     proposal: 'Proposal',
     applyProposal: 'Apply to diagram',

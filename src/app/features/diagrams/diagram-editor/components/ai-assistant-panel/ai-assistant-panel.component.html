@@ -278,11 +278,20 @@
                     ></span>
                     <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-accent-fg"></span>
                   </span>
-                  @if (collaboration.aiBusyFor(); as busyFor) {
-                    {{ 'ai.thinkingFor' | translate }} {{ firstName(busyFor) }}…
-                  } @else {
-                    {{ 'ai.thinking' | translate }}
-                  }
+                  <span class="flex flex-col">
+                    <span>
+                      @if (collaboration.aiBusyFor(); as busyFor) {
+                        {{ 'ai.thinkingFor' | translate }} {{ firstName(busyFor) }}…
+                      } @else {
+                        {{ 'ai.thinking' | translate }}
+                      }
+                    </span>
+                    @if (isSlowReply()) {
+                      <span class="text-[12px] text-fg-subtle">{{
+                        'ai.wakingUp' | translate
+                      }}</span>
+                    }
+                  </span>
                 </div>
               }
             </div>

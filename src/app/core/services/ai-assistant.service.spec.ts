@@ -1,7 +1,7 @@
 import '@angular/compiler';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { of } from 'rxjs';
-import { AiAssistantService, AiResponse, ChatConversation } from './ai-assistant.service';
+import { AiAccepted, AiAssistantService, ChatConversation } from './ai-assistant.service';
 
 describe('AiAssistantService', () => {
   let service: AiAssistantService;
@@ -18,17 +18,22 @@ describe('AiAssistantService', () => {
   });
 
   it('debe enviar el prompt, el diagrama y el id provisional a /ai/prompt', () => {
-    const mockAiResponse: AiResponse = {
-      success: true,
-      action: 'diagram_mutated',
-      message: 'Ana, creé Factura',
-      nodes: [],
-      connections: [],
-      changesSummary: 'Cambio aplicado',
-      modelUsed: 'trazo',
+    // El servidor solo confirma el mensaje; la respuesta de Trazo llega por el socket
+    const accepted: AiAccepted = {
+      status: 'queued',
+      userMessage: {
+        id: 'm-1',
+        conversationId: 'conv-1',
+        role: 'user',
+        author: { userId: 'u1', userName: 'Ana Pérez' },
+        text: 'Crea tabla Factura',
+        clientId: 'c-1',
+        status: 'success',
+        createdAt: '2026-11-03T18:00:00Z',
+      },
     };
 
-    mockHttpClient.post.mockReturnValue(of({ data: mockAiResponse }));
+    mockHttpClient.post.mockReturnValue(of({ data: accepted }));
 
     service
       .sendTextPrompt('Crea tabla Factura', {
@@ -38,8 +43,8 @@ describe('AiAssistantService', () => {
         clientId: 'c-1',
       })
       .subscribe((res) => {
-        expect(res).toEqual(mockAiResponse);
-        expect(res.modelUsed).toBe('trazo');
+        expect(res).toEqual(accepted);
+        expect(res.userMessage.clientId).toBe('c-1');
       });
 
     expect(mockHttpClient.post).toHaveBeenCalledWith(

@@ -45,6 +45,10 @@ import { UmlClassNode, UmlConnection } from '../../../../../core/models/diagram.
 
 /** Las fotos se reducen antes de enviarlas: el modelo no necesita más y viajan más rápido. */
 const MAX_IMAGE_SIDE = 1600;
+/** A partir de aquí se avisa de que el servidor del modelo puede estar arrancando. */
+const SLOW_REPLY_MS = 12_000;
+/** Si en este tiempo no llega la respuesta, se da por perdida (el backend espera hasta 3 min). */
+const REPLY_TIMEOUT_MS = 240_000;
 
 import { TranslatePipe, TranslationService } from '../../../../../core/i18n';
 
@@ -127,7 +131,13 @@ export class AiAssistantPanelComponent implements OnDestroy {
   readonly unreadCount = signal<number>(0);
   /** Propuestas que se están aplicando desde este navegador. */
   readonly applyingIds = signal<Set<string>>(new Set());
+  /** Trazo tarda más de lo normal: su servidor (GPU en Modal) puede estar arrancando. */
+  readonly isSlowReply = signal<boolean>(false);
   private conversationId: string | null = null;
+  /** Mensaje propio que espera respuesta de Trazo (por su id provisional). */
+  private pendingClientId: string | null = null;
+  private slowTimer: ReturnType<typeof setTimeout> | null = null;
+  private replyTimeout: ReturnType<typeof setTimeout> | null = null;
 
   readonly suggestionKeys = ['ai.suggestion1', 'ai.suggestion2', 'ai.suggestion3'];
 
@@ -139,6 +149,18 @@ export class AiAssistantPanelComponent implements OnDestroy {
     effect(() => {
       const diagramId = this.diagramId();
       untracked(() => this.loadConversation(diagramId));
+    });
+
+    // Si Trazo tarda, se avisa a toda la sala de que su servidor puede estar arrancando
+    effect(() => {
+      const busy = this.isAiProcessing() || this.collaboration.aiBusyFor() !== null;
+      if (this.slowTimer) clearTimeout(this.slowTimer);
+      this.slowTimer = null;
+      if (!busy) {
+        this.isSlowReply.set(false);
+        return;
+      }
+      this.slowTimer = setTimeout(() => this.isSlowReply.set(true), SLOW_REPLY_MS);
     });
 
     this.collaboration.aiMessage$
@@ -159,6 +181,8 @@ export class AiAssistantPanelComponent implements OnDestroy {
       this.speechRecognition.stop();
     }
     this.stopWebcam();
+    if (this.slowTimer) clearTimeout(this.slowTimer);
+    if (this.replyTimeout) clearTimeout(this.replyTimeout);
   }
 
   get myUserId(): string | undefined {
@@ -294,6 +318,12 @@ export class AiAssistantPanelComponent implements OnDestroy {
       return next;
     });
 
+    // Llegó la respuesta de Trazo a mi mensaje (por el socket, como al resto de la sala)
+    if (message.role === 'assistant' && this.pendingClientId && message.replyTo) {
+      const asked = this.aiChatMessages().find((m) => m.id === message.replyTo);
+      if (asked?.clientId === this.pendingClientId) this.finishPending();
+    }
+
     if (!isNew) return;
     // Lo que pregunta o recibe otra persona también aparece aquí
     if (message.author.userId !== this.myUserId && this.dock() === 'bottom' && !this.isExpanded()) {
@@ -339,7 +369,15 @@ export class AiAssistantPanelComponent implements OnDestroy {
     ]);
 
     this.isAiProcessing.set(true);
+    this.pendingClientId = clientId;
     this.expand();
+    // Si la respuesta no llega (servidor de IA caído sin aviso), se libera la barra
+    if (this.replyTimeout) clearTimeout(this.replyTimeout);
+    this.replyTimeout = setTimeout(() => {
+      if (this.pendingClientId !== clientId) return;
+      this.finishPending();
+      this.addLocalError(this.i18n.t('ai.noReply'));
+    }, REPLY_TIMEOUT_MS);
 
     const context: AiDiagramContext = {
       diagramId,
@@ -356,8 +394,10 @@ export class AiAssistantPanelComponent implements OnDestroy {
         )
       : this.aiService.sendTextPrompt(promptText, context);
 
+    // El servidor solo confirma el mensaje; la respuesta de Trazo y los cambios del diagrama
+    // llegan por el socket (ai_message y diagram_synced), igual que a los demás
     request$.subscribe({
-      next: (res) => this.handleAiResponse(res),
+      next: (accepted) => this.upsertMessage(accepted.userMessage),
       error: (err) => this.handleAiError(err, clientId),
     });
 
@@ -367,29 +407,15 @@ export class AiAssistantPanelComponent implements OnDestroy {
     setTimeout(() => this.autoGrow());
   }
 
-  private handleAiResponse(res: AiResponse): void {
+  private finishPending(): void {
+    this.pendingClientId = null;
     this.isAiProcessing.set(false);
-    if (res.userMessage) this.upsertMessage(res.userMessage);
-    if (res.assistantMessage) this.upsertMessage(res.assistantMessage);
-
-    // Las respuestas y las propuestas no tocan el diagrama
-    if (
-      res.success &&
-      (res.action === 'diagram_mutated' || res.action === 'vision_extract') &&
-      res.nodes
-    ) {
-      this.applyMutation.emit({
-        nodes: res.nodes,
-        connections: res.connections || [],
-        summary: res.changesSummary || res.message,
-        rawResponse: res,
-      });
-    }
-    this.scrollToBottom();
+    if (this.replyTimeout) clearTimeout(this.replyTimeout);
+    this.replyTimeout = null;
   }
 
   private handleAiError(err: any, clientId?: string): void {
-    this.isAiProcessing.set(false);
+    this.finishPending();
     // El mensaje no llegó a guardarse: se retira el provisional
     if (clientId) {
       this.aiChatMessages.update((msgs) =>

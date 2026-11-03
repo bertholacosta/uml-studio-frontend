@@ -53,6 +53,12 @@ export interface AiResponse {
   assistantMessage?: ChatMessage;
 }
 
+/** Respuesta inmediata del servidor: la respuesta de Trazo llega después por el socket. */
+export interface AiAccepted {
+  status: 'queued';
+  userMessage: ChatMessage;
+}
+
 /** Diagrama actual que acompaña a cada petición (la conversación la guarda el servidor). */
 export interface AiDiagramContext {
   diagramId: string;
@@ -80,10 +86,10 @@ export class AiAssistantService {
       .pipe(map((res) => (res && res.data ? res.data : res) as ChatConversation));
   }
 
-  sendTextPrompt(prompt: string, context: AiDiagramContext): Observable<AiResponse> {
+  sendTextPrompt(prompt: string, context: AiDiagramContext): Observable<AiAccepted> {
     return this.http
       .post<any>(`${this.apiUrl}/prompt`, { prompt, ...context })
-      .pipe(map((res) => (res && res.data ? res.data : res) as AiResponse));
+      .pipe(map((res) => (res && res.data ? res.data : res) as AiAccepted));
   }
 
   sendVisionPrompt(
@@ -91,10 +97,10 @@ export class AiAssistantService {
     mimeType: string,
     prompt: string | undefined,
     context: AiDiagramContext,
-  ): Observable<AiResponse> {
+  ): Observable<AiAccepted> {
     return this.http
       .post<any>(`${this.apiUrl}/vision-diagram`, { imageBase64, mimeType, prompt, ...context })
-      .pipe(map((res) => (res && res.data ? res.data : res) as AiResponse));
+      .pipe(map((res) => (res && res.data ? res.data : res) as AiAccepted));
   }
 
   /** Aplica al diagrama actual los cambios que Trazo propuso en un mensaje. */

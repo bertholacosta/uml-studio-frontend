@@ -421,6 +421,9 @@ export const es = {
     placeholderImage: 'Instrucción para la imagen (opcional)…',
     thinking: 'Trazo está pensando…',
     thinkingFor: 'Trazo está respondiendo a',
+    wakingUp:
+      'Encendiendo el servidor del modelo: tras un rato sin uso, la primera respuesta puede tardar hasta un minuto.',
+    noReply: 'Trazo no respondió a tiempo. Vuelve a intentarlo en unos segundos.',
     replyingTo: 'a',
     proposal: 'Propuesta',
     applyProposal: 'Aplicar al diagrama',
