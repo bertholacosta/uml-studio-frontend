@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import {
   FFlowModule,
   FFlowComponent,
@@ -57,7 +57,11 @@ import {
 
 import { DiagramAppbarComponent } from './components/diagram-appbar/diagram-appbar.component';
 import { DiagramToolboxComponent } from './components/diagram-toolbox/diagram-toolbox.component';
-import { AiAssistantPanelComponent } from './components/ai-assistant-panel/ai-assistant-panel.component';
+import {
+  AiAssistantPanelComponent,
+  ChatDiagram,
+  ChatMember,
+} from './components/ai-assistant-panel/ai-assistant-panel.component';
 import { UserProfileModalComponent } from './components/user-profile-modal/user-profile-modal.component';
 import { SpringBootModalComponent } from './components/spring-boot-modal/spring-boot-modal.component';
 import { ClassEditPanelComponent } from './components/class-edit-panel/class-edit-panel.component';
@@ -141,6 +145,7 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
   readonly bmpExportService = inject(BmpExportService);
   private readonly tour = inject(TourService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   @ViewChild(FFlowComponent) flow?: FFlowComponent;
   @ViewChild(FCanvasComponent) canvas?: FCanvasComponent;
@@ -150,6 +155,9 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
   // Contexto del diagrama y proyecto
   currentDiagramId = signal<string | null>(null);
   currentProjectId = signal<string | null>(null);
+  /** Miembros y diagramas del proyecto, para las @menciones y los #diagramas del chat. */
+  readonly projectMembers = signal<ChatMember[]>([]);
+  readonly projectDiagrams = signal<ChatDiagram[]>([]);
   currentDiagramName = signal<string>('Diagrama UML');
   saveSuccessMessage = signal<boolean>(false);
   hasUnsavedChanges = signal<boolean>(false);
@@ -337,7 +345,8 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
 
     this.collaborationService.remoteDiagramSync$.subscribe((data) => {
       if (data.action === 'ai_mutation' && data.nodes) {
-        this.applyAiMutationWithAnimation(data.nodes, data.connections || []);
+        // Los cambios de Trazo ya los guardó el servidor
+        this.applyAiMutationWithAnimation(data.nodes, data.connections || [], true);
       } else if (data.nodes) {
         const cleanNodes = this.applyAiNodesMutation(data.nodes);
         this.nodes.set(cleanNodes);
@@ -366,6 +375,9 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
         this.currentProjectId.set(projectId);
         this.projectService.getProject(projectId).subscribe({
           next: (project) => {
+            this.projectMembers.set(
+              (project?.members || []).map((m) => ({ userId: m.userId, userName: m.fullName })),
+            );
             const user = this.authService.currentUser();
             if (user && project) {
               if (project.userRole) {
@@ -391,9 +403,11 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
       if (diagramId) {
         this.currentDiagramId.set(diagramId);
         this.loadDiagramFromBackend(diagramId);
-      } else if (projectId) {
+      }
+      if (projectId) {
         this.diagramService.loadDiagramsByProject(projectId).subscribe((diagrams) => {
-          if (diagrams && diagrams.length > 0) {
+          this.projectDiagrams.set((diagrams || []).map((d) => ({ id: d.id, name: d.name })));
+          if (!diagramId && diagrams && diagrams.length > 0) {
             const first = diagrams[0];
             this.currentDiagramId.set(first.id);
             this.currentDiagramName.set(first.name);
@@ -1810,25 +1824,29 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
   // IA E IMPORTACIÓN
   // ======================================================================
 
+  /** Propuesta de Trazo aplicada desde este navegador: el servidor ya la guardó y la difundió. */
   onAiMutation(event: {
     nodes: UmlClassNode[];
     connections: UmlConnection[];
     summary: string;
   }): void {
-    if (event.nodes && event.nodes.length > 0) {
-      this.applyAiMutationWithAnimation(event.nodes, event.connections || []);
-      this.collaborationService.sendDiagramSync(
-        event.nodes,
-        event.connections || [],
-        'ai_mutation',
-      );
-      this.commitHistory();
+    if (event.nodes) {
+      this.applyAiMutationWithAnimation(event.nodes, event.connections || [], true);
     }
+  }
+
+  /** Abre otro diagrama del proyecto (desde el enlace «#Diagrama» de un mensaje de Trazo). */
+  openDiagramFromChat(diagramId: string): void {
+    if (this.hasUnsavedChanges() && !this.isReadOnly()) this.saveToBackend();
+    this.router.navigate(['/diagram'], {
+      queryParams: { diagramId, projectId: this.currentProjectId() },
+    });
   }
 
   private applyAiMutationWithAnimation(
     targetNodes: UmlClassNode[],
     targetConns: UmlConnection[],
+    persisted = false,
   ): void {
     this.closeClassPanel(false);
     this.closeRelationPanel();
@@ -1836,7 +1854,8 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
     this.nodes.set(cleanNodes);
     const cleanConns = this.sanitizeClientConnections(targetConns, cleanNodes);
     this.connections.set(cleanConns);
-    this.markAsUnsaved();
+    if (persisted) this.hasUnsavedChanges.set(false);
+    else this.markAsUnsaved();
     this.updateConnectionEndpoints();
     setTimeout(() => {
       this.updateConnectionEndpoints();

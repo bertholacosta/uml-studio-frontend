@@ -997,6 +997,131 @@ f-flow f-connection.f-selected .f-connection-path {
   line-height: 1.55;
 }
 
+/* Me mencionaron con @ */
+.ai-bubble-peer.is-mention {
+  border-color: rgb(255 107 44 / 0.45);
+  box-shadow: inset 2px 0 0 var(--color-accent);
+}
+
+/* Chat del proyecto: pestañas del canal del equipo y de la conversación privada con Trazo */
+.chat-tabs {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 2px;
+}
+
+.chat-tab {
+  position: relative;
+  display: inline-flex;
+  height: 28px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
+  border-radius: 8px;
+  color: var(--color-fg-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.chat-tab:hover {
+  background: var(--color-elevated);
+  color: var(--color-fg);
+}
+
+.chat-tab.is-active {
+  background: var(--color-elevated);
+  color: var(--color-fg);
+  font-weight: 600;
+}
+
+.chat-tab-badge {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* @persona y #diagrama dentro de los mensajes */
+.chat-ref {
+  color: var(--color-accent-fg);
+  font-weight: 600;
+}
+
+.chat-ref-link {
+  border-radius: 4px;
+  text-decoration: underline;
+  text-decoration-color: rgb(255 107 44 / 0.4);
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.chat-ref-link:hover {
+  text-decoration-color: currentColor;
+}
+
+/* Trazo como miembro del equipo */
+.chat-trazo-avatar {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-fg);
+  box-shadow: inset 0 0 0 1px rgb(255 107 44 / 0.35);
+}
+
+.chat-bot-badge {
+  padding: 0 5px;
+  border: 1px solid rgb(255 107 44 / 0.35);
+  border-radius: 4px;
+  color: var(--color-accent-fg);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 14px;
+  text-transform: uppercase;
+}
+
+/* Autocompletado de @personas y #diagramas */
+.chat-mentions {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 8px;
+  z-index: 50;
+  display: flex;
+  width: min(320px, calc(100% - 16px));
+  flex-direction: column;
+  padding: 4px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.35);
+}
+
+.chat-mention-option {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  font-size: 13px;
+  text-align: left;
+}
+
+.chat-mention-option.is-active,
+.chat-mention-option:hover {
+  background: var(--color-elevated);
+}
+
 .ai-avatar {
   display: inline-flex;
   width: 24px;

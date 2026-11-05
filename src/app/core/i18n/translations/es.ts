@@ -396,6 +396,30 @@ export const es = {
       flutter: 'Flutter + Clean Architecture + BLoC + Dio + SharedPreferences + Material 3',
     },
   },
+  chat: {
+    team: 'Equipo',
+    directHint: 'Conversación privada con Trazo: nadie más la ve',
+    aiBadge: 'IA',
+    trazoHint: 'Pídele algo a la IA del equipo',
+    openDiagram: 'abierto',
+    openThisDiagram: 'Abrir este diagrama',
+    resetTeam: 'Nueva conversación del equipo (administrador)',
+    resetDirect: 'Nueva conversación privada',
+    resetTeamConfirm:
+      'Se empezará una conversación nueva en el canal del equipo. La actual queda guardada en el historial. ¿Continuar?',
+    resetDirectConfirm:
+      'Se empezará una conversación privada nueva con Trazo. La actual queda guardada. ¿Continuar?',
+    teamEmptyTitle: 'Canal del equipo',
+    teamEmptyBody:
+      'Conversa con tu equipo en tiempo real. Escribe @Trazo para pedirle algo a la IA y #Diagrama para indicar en qué lienzo trabajar.',
+    directEmptyBody:
+      'Tu conversación privada con Trazo: nadie más ve estos mensajes. Los cambios que le pidas sí se aplican al diagrama para todos.',
+    teamSuggestion1: '@Trazo ¿qué es un atributo derivado y cuándo conviene usarlo?',
+    teamSuggestion2: '@Trazo revisa {diagram} y dinos qué mejorarías',
+    teamSuggestion3: '@Trazo ¿qué clases podríamos agregar a {diagram}?',
+    teamPlaceholder: 'Mensaje al equipo… @Trazo para la IA, #Diagrama para el lienzo',
+    directPlaceholder: 'Mensaje privado para Trazo…',
+  },
   ai: {
     noDiagram: 'Abre o guarda un diagrama antes de hablar con Trazo.',
     dockSide: 'Acoplar a la derecha',

@@ -553,7 +553,11 @@
   <!-- 5. ASISTENTE (barra abajo al centro o columna acoplada a la derecha; se muestra u oculta desde la barra de herramientas) -->
   <app-ai-assistant-panel
     [isOpen]="isAiPanelOpen()"
+    [projectId]="currentProjectId()"
     [diagramId]="currentDiagramId()"
+    [diagrams]="projectDiagrams()"
+    [members]="projectMembers()"
+    [isAdmin]="currentUserRole() === 'OWNER'"
     [currentNodes]="nodes()"
     [currentConnections]="connections()"
     [canEdit]="!isReadOnly()"
@@ -561,6 +565,7 @@
     (dockChange)="setAiDock($event)"
     (closePanel)="isAiPanelOpen.set(false)"
     (applyMutation)="onAiMutation($event)"
+    (openDiagram)="openDiagramFromChat($event)"
   >
   </app-ai-assistant-panel>
 

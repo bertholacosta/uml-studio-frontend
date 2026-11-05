@@ -4,7 +4,7 @@ import { Subject } from 'rxjs';
 import { AuthService } from './auth.service';
 import { UmlClassNode, UmlConnection } from '../models/diagram.model';
 import { User } from '../models/user.model';
-import { ChatConversation, ChatMessage } from './ai-assistant.service';
+import { ChatChannel, ChatConversation, ChatMessage } from './ai-assistant.service';
 import { environment } from '../../../environments/environment';
 
 export interface RemoteCursor {
@@ -58,11 +58,12 @@ export class CollaborationService {
   }>();
   readonly nodeLockRejected$ = new Subject<{ nodeId: string; lockedBy: NodeLock }>();
 
-  // Conversación compartida con Trazo: mensajes de cualquiera de la pizarra y estado de Trazo
-  readonly aiMessage$ = new Subject<ChatMessage>();
-  readonly aiConversationReset$ = new Subject<ChatConversation>();
-  /** Nombre de la persona a la que Trazo está respondiendo, o null si está libre. */
-  readonly aiBusyFor = signal<string | null>(null);
+  // Chat del proyecto: canal del equipo y conversación privada con Trazo
+  readonly chatMessage$ = new Subject<ChatMessage>();
+  readonly chatReset$ = new Subject<ChatConversation>();
+  /** A quién está respondiendo Trazo en cada conversación (null si está libre). */
+  readonly trazoBusyFor = signal<Record<ChatChannel, string | null>>({ team: null, direct: null });
+  private currentProjectId: string | null = null;
 
   // Control de frecuencia de cursores
   private lastCursorSent = 0;
@@ -102,11 +103,14 @@ export class CollaborationService {
       if (diagramId) {
         this.emitJoinRoom(diagramId);
       }
+      if (this.currentProjectId) {
+        this.socket?.emit('join_project', { projectId: this.currentProjectId });
+      }
     });
 
     this.socket.on('disconnect', () => {
       this.isConnected.set(false);
-      this.aiBusyFor.set(null);
+      this.trazoBusyFor.set({ team: null, direct: null });
       this.remoteCursors.set([]);
       this.activeNodeLocks.set(new Map());
     });
@@ -211,13 +215,25 @@ export class CollaborationService {
       },
     );
 
-    this.socket.on('ai_message', (message: ChatMessage) => this.aiMessage$.next(message));
-    this.socket.on('ai_conversation_reset', (conversation: ChatConversation) =>
-      this.aiConversationReset$.next(conversation),
+    this.socket.on('chat_message', (message: ChatMessage) => this.chatMessage$.next(message));
+    this.socket.on('chat_reset', (conversation: ChatConversation) =>
+      this.chatReset$.next(conversation),
     );
-    this.socket.on('ai_status', (data: { busy: boolean; userName?: string }) =>
-      this.aiBusyFor.set(data.busy ? data.userName || '' : null),
+    this.socket.on(
+      'trazo_status',
+      (data: { channel: ChatChannel; busy: boolean; userName?: string }) =>
+        this.trazoBusyFor.update((busy) => ({
+          ...busy,
+          [data.channel]: data.busy ? data.userName || '' : null,
+        })),
     );
+  }
+
+  /** Sigue el chat del proyecto aunque no haya un diagrama abierto (y tras cada reconexión). */
+  joinProject(projectId: string): void {
+    this.currentProjectId = projectId;
+    this.connect();
+    if (this.socket?.connected) this.socket.emit('join_project', { projectId });
   }
 
   joinRoom(diagramId: string): void {
@@ -274,7 +290,7 @@ export class CollaborationService {
     this.remoteCursors.set([]);
     this.collaborators.set([]);
     this.activeNodeLocks.set(new Map());
-    this.aiBusyFor.set(null);
+    this.trazoBusyFor.set({ team: null, direct: null });
   }
 
   requestNodeLock(nodeId: string): void {

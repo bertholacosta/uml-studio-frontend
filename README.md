@@ -12,10 +12,12 @@ Está hecho con Angular y Foblex Flow y se conecta a la API del repositorio del 
   - Lienzo claro (estilo UML clásico) u oscuro.
 - **Colaboración en tiempo real**: ves quién está conectado, sus cursores y lo que mueve; una clase queda bloqueada mientras otra persona la edita.
 - **Compartir**: invita por correo con rol de propietario, editor o lector, gestiona los miembros del proyecto y copia el enlace del diagrama.
-- **Trazo, mentor del equipo**: un modelo de IA propio (servido por el backend con Ollama) integrado en la pizarra.
-  - Conversación **compartida**: las preguntas de cualquier colaborador y las respuestas de Trazo aparecen en tiempo real en todos los navegadores que tienen abierto el diagrama, con el nombre y el color de cada persona.
-  - Trazo responde a cada persona por su nombre; explica conceptos, revisa el diagrama, lo edita o deja **propuestas** que cualquier editor aplica con «Aplicar al diagrama» (los lectores pueden preguntar, pero no editar).
-  - La conversación se guarda en el servidor: al volver a abrir el diagrama sigue ahí, y «Nueva conversación» empieza otra para todo el equipo.
+- **Chat del equipo con Trazo** (estilo Slack), con el modelo de IA propio que sirve el backend:
+  - Pestaña **Equipo**: el canal del proyecto, en tiempo real para todos, con el nombre y el color de cada persona. **Trazo es un miembro más** que solo responde cuando se le menciona con **@Trazo**.
+  - Pestaña **Trazo 🔒**: conversación privada con Trazo; nadie más la ve.
+  - Autocompletado al escribir **@** (personas y Trazo) y **#** (diagramas del proyecto, para indicar en qué lienzo trabajar). Las menciones a ti se resaltan.
+  - Trazo responde a cada persona por su nombre; explica conceptos, revisa el diagrama, lo edita o deja **propuestas** que cualquier editor aplica con «Aplicar al diagrama» (los lectores pueden preguntar, pero no editar). Cada respuesta indica el **#Diagrama** en el que actuó, con un enlace para abrirlo.
+  - Las conversaciones y los cambios de Trazo se guardan en el servidor: al volver otro día todo sigue ahí. Solo el administrador puede reiniciar el canal del equipo.
   - Se le puede escribir, dictar por voz o enviar la foto de un diagrama hecho a mano para digitalizarlo.
 - **Generar Full Stack**: vista previa navegable del código Spring Boot y Flutter generado a partir del diagrama, con resaltado de sintaxis y descarga en `.zip`.
 - **Importar y exportar**: JSON y XMI 2.1 (Enterprise Architect); imagen en PNG, SVG y BMP.

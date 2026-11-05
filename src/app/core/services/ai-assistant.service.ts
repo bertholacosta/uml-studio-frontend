@@ -5,18 +5,30 @@ import { map } from 'rxjs/operators';
 import { UmlClassNode, UmlConnection } from '../models/diagram.model';
 import { environment } from '../../../environments/environment';
 
+/** team: canal del equipo del proyecto; direct: conversación privada con Trazo. */
+export type ChatChannel = 'team' | 'direct';
+
+/** Id con el que se menciona a Trazo (es un miembro más del canal). */
+export const TRAZO_USER_ID = 'ai_assistant';
+
 export interface ChatAuthor {
   userId: string;
   userName: string;
 }
 
-/** Mensaje de la conversación compartida con Trazo (lo ven todos los de la pizarra). */
+/** Mensaje del canal del equipo o de la conversación privada con Trazo. */
 export interface ChatMessage {
   id: string;
   conversationId: string;
+  projectId: string;
+  channel: ChatChannel;
   role: 'user' | 'assistant';
   author: ChatAuthor;
   text: string;
+  mentions?: string[];
+  /** Diagrama sobre el que trabajó Trazo o al que se refiere el mensaje. */
+  diagramId?: string;
+  diagramName?: string;
   clientId?: string;
   replyTo?: string;
   intent?: 'answer' | 'edit' | 'propose' | 'clarify' | 'vision';
@@ -34,7 +46,8 @@ export interface ChatMessage {
 
 export interface ChatConversation {
   id: string;
-  diagramId: string;
+  projectId: string;
+  channel: ChatChannel;
   startedBy: ChatAuthor;
   createdAt: string;
   messages: ChatMessage[];
@@ -53,17 +66,23 @@ export interface AiResponse {
   assistantMessage?: ChatMessage;
 }
 
-/** Respuesta inmediata del servidor: la respuesta de Trazo llega después por el socket. */
-export interface AiAccepted {
-  status: 'queued';
-  userMessage: ChatMessage;
+/** Respuesta inmediata: «queued» si llamó a Trazo, cuya respuesta llega después por el socket. */
+export interface ChatAccepted {
+  status: 'sent' | 'queued';
+  message: ChatMessage;
 }
 
-/** Diagrama actual que acompaña a cada petición (la conversación la guarda el servidor). */
-export interface AiDiagramContext {
-  diagramId: string;
-  currentNodes: UmlClassNode[];
-  currentConnections: UmlConnection[];
+/** Diagrama que tiene abierto quien escribe: Trazo lo usa si es el lienzo sobre el que trabaja. */
+export interface OpenDiagram {
+  activeDiagramId?: string;
+  currentNodes?: UmlClassNode[];
+  currentConnections?: UmlConnection[];
+}
+
+export interface SendChatMessage extends OpenDiagram {
+  channel: ChatChannel;
+  text: string;
+  mentions?: string[];
   clientId?: string;
 }
 
@@ -72,48 +91,49 @@ export interface AiDiagramContext {
 })
 export class AiAssistantService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = `${environment.apiUrl}/ai`;
+  private readonly apiUrl = environment.apiUrl;
 
-  getConversation(diagramId: string): Observable<ChatConversation> {
+  getConversation(projectId: string, channel: ChatChannel): Observable<ChatConversation> {
     return this.http
-      .get<any>(`${this.apiUrl}/diagrams/${diagramId}/conversation`)
+      .get<any>(`${this.apiUrl}/chat/projects/${projectId}/${channel}`)
       .pipe(map((res) => (res && res.data ? res.data : res) as ChatConversation));
   }
 
-  startConversation(diagramId: string): Observable<ChatConversation> {
+  /** Empieza una conversación nueva (el canal del equipo solo lo reinicia el administrador). */
+  resetConversation(projectId: string, channel: ChatChannel): Observable<ChatConversation> {
     return this.http
-      .post<any>(`${this.apiUrl}/diagrams/${diagramId}/conversation`, {})
+      .post<any>(`${this.apiUrl}/chat/projects/${projectId}/${channel}/reset`, {})
       .pipe(map((res) => (res && res.data ? res.data : res) as ChatConversation));
   }
 
-  sendTextPrompt(prompt: string, context: AiDiagramContext): Observable<AiAccepted> {
+  sendMessage(projectId: string, message: SendChatMessage): Observable<ChatAccepted> {
     return this.http
-      .post<any>(`${this.apiUrl}/prompt`, { prompt, ...context })
-      .pipe(map((res) => (res && res.data ? res.data : res) as AiAccepted));
+      .post<any>(`${this.apiUrl}/chat/projects/${projectId}/messages`, message)
+      .pipe(map((res) => (res && res.data ? res.data : res) as ChatAccepted));
   }
 
+  /** Imagen para que Trazo la digitalice en `diagramId`; se publica en `channel`. */
   sendVisionPrompt(
     imageBase64: string,
     mimeType: string,
     prompt: string | undefined,
-    context: AiDiagramContext,
-  ): Observable<AiAccepted> {
+    context: {
+      diagramId: string;
+      channel: ChatChannel;
+      clientId?: string;
+      currentNodes: UmlClassNode[];
+      currentConnections: UmlConnection[];
+    },
+  ): Observable<ChatAccepted> {
     return this.http
-      .post<any>(`${this.apiUrl}/vision-diagram`, { imageBase64, mimeType, prompt, ...context })
-      .pipe(map((res) => (res && res.data ? res.data : res) as AiAccepted));
+      .post<any>(`${this.apiUrl}/ai/vision-diagram`, { imageBase64, mimeType, prompt, ...context })
+      .pipe(map((res) => (res && res.data ? res.data : res) as ChatAccepted));
   }
 
-  /** Aplica al diagrama actual los cambios que Trazo propuso en un mensaje. */
-  applyProposal(
-    messageId: string,
-    currentNodes: UmlClassNode[],
-    currentConnections: UmlConnection[],
-  ): Observable<AiResponse> {
+  /** Aplica a su diagrama los cambios que Trazo propuso en un mensaje. */
+  applyProposal(messageId: string, openDiagram: OpenDiagram): Observable<AiResponse> {
     return this.http
-      .post<any>(`${this.apiUrl}/messages/${messageId}/apply`, {
-        currentNodes,
-        currentConnections,
-      })
+      .post<any>(`${this.apiUrl}/chat/messages/${messageId}/apply`, openDiagram)
       .pipe(map((res) => (res && res.data ? res.data : res) as AiResponse));
   }
 }

@@ -394,6 +394,30 @@ export const en = {
       flutter: 'Flutter + Clean Architecture + BLoC + Dio + SharedPreferences + Material 3',
     },
   },
+  chat: {
+    team: 'Team',
+    directHint: 'Private conversation with Trazo: nobody else sees it',
+    aiBadge: 'AI',
+    trazoHint: "Ask the team's AI",
+    openDiagram: 'open',
+    openThisDiagram: 'Open this diagram',
+    resetTeam: 'New team conversation (admin)',
+    resetDirect: 'New private conversation',
+    resetTeamConfirm:
+      'A new conversation will start in the team channel. The current one stays in the history. Continue?',
+    resetDirectConfirm:
+      'A new private conversation with Trazo will start. The current one is kept. Continue?',
+    teamEmptyTitle: 'Team channel',
+    teamEmptyBody:
+      'Chat with your team in real time. Type @Trazo to ask the AI and #Diagram to choose which canvas to work on.',
+    directEmptyBody:
+      'Your private conversation with Trazo: nobody else sees these messages. Changes you ask for are applied to the diagram for everyone.',
+    teamSuggestion1: '@Trazo what is a derived attribute and when should we use one?',
+    teamSuggestion2: '@Trazo review {diagram} and tell us what you would improve',
+    teamSuggestion3: '@Trazo what classes could we add to {diagram}?',
+    teamPlaceholder: 'Message the team… @Trazo for the AI, #Diagram for the canvas',
+    directPlaceholder: 'Private message to Trazo…',
+  },
   ai: {
     noDiagram: 'Open or save a diagram before talking to Trazo.',
     dockSide: 'Dock to the right',

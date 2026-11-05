@@ -1,4 +1,5 @@
-<!-- Asistente (estilo Miro): barra abajo en el centro con conversación plegable, o acoplado como panel a la derecha -->
+<!-- Chat del proyecto (estilo Slack): canal del equipo, donde Trazo es un miembro más, y conversación privada con Trazo.
+     Barra abajo en el centro con conversación plegable, o acoplado como panel a la derecha -->
 @if (isOpen()) {
   <div
     data-tour="ai-panel"
@@ -24,19 +25,50 @@
         [ngClass]="dock() === 'side' ? 'min-h-0 flex-1' : 'island max-h-[min(460px,55vh)]'"
       >
         <div
-          class="flex shrink-0 items-center justify-between pr-1.5 pl-3.5"
-          [ngClass]="dock() === 'side' ? 'h-11 pl-1.5' : 'h-10 border-b border-line'"
+          class="flex shrink-0 items-center justify-between gap-2 pr-1.5 pl-2"
+          [ngClass]="dock() === 'side' ? 'h-11 pl-1' : 'h-10 border-b border-line'"
         >
-          <span class="flex items-center gap-2 text-[13px] font-semibold text-fg">
-            <ng-icon name="heroSparkles" class="text-sm text-accent-fg"></ng-icon>
-            {{ 'ai.title' | translate }}
-          </span>
+          <!-- Pestañas: canal del equipo y conversación privada con Trazo -->
+          <div class="chat-tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="activeChannel() === 'team'"
+              [class.is-active]="activeChannel() === 'team'"
+              (click)="selectChannel('team')"
+              class="chat-tab"
+            >
+              <ng-icon name="heroHashtag" class="text-xs"></ng-icon>
+              {{ 'chat.team' | translate }}
+              @if (unread().team && activeChannel() !== 'team') {
+                <span class="chat-tab-badge">{{ unread().team }}</span>
+              }
+            </button>
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="activeChannel() === 'direct'"
+              [class.is-active]="activeChannel() === 'direct'"
+              (click)="selectChannel('direct')"
+              class="chat-tab"
+              [title]="'chat.directHint' | translate"
+            >
+              <ng-icon name="heroSparkles" class="text-xs text-accent-fg"></ng-icon>
+              {{ 'ai.title' | translate }}
+              <ng-icon name="heroLockClosed" class="text-[10px] text-fg-subtle"></ng-icon>
+              @if (unread().direct && activeChannel() !== 'direct') {
+                <span class="chat-tab-badge">{{ unread().direct }}</span>
+              }
+            </button>
+          </div>
           <div class="flex items-center gap-0.5">
-            @if (aiChatMessages().length && canEdit()) {
+            @if (chatMessages().length && (activeChannel() === 'direct' || isAdmin())) {
               <button
                 type="button"
                 (click)="newChat()"
-                [title]="'ai.newChat' | translate"
+                [title]="
+                  (activeChannel() === 'team' ? 'chat.resetTeam' : 'chat.resetDirect') | translate
+                "
                 class="btn btn-ghost btn-icon !h-7 !w-7"
               >
                 <ng-icon name="heroPencilSquare" class="text-sm"></ng-icon>
@@ -108,18 +140,25 @@
           class="min-h-0 flex-1 overflow-y-auto py-3.5"
           [ngClass]="dock() === 'side' ? 'px-1.5' : 'px-4'"
         >
-          @if (isLoadingConversation() && !aiChatMessages().length) {
+          @if (isLoadingConversation() && !chatMessages().length) {
             <p class="text-[13px] text-fg-subtle">{{ 'ai.loading' | translate }}</p>
-          } @else if (!aiChatMessages().length && !isAiProcessing()) {
-            <!-- Inicio: qué puede hacer y sugerencias -->
-            <h3 class="text-[15px] font-semibold text-fg">{{ 'ai.emptyTitle' | translate }}</h3>
+          } @else if (!chatMessages().length && !isAiProcessing()) {
+            <!-- Inicio: qué es cada conversación y sugerencias -->
+            <h3 class="text-[15px] font-semibold text-fg">
+              {{
+                (activeChannel() === 'team' ? 'chat.teamEmptyTitle' : 'ai.emptyTitle') | translate
+              }}
+            </h3>
             <p class="mt-1 text-[13px] leading-relaxed text-fg-muted">
-              {{ 'ai.emptyBody' | translate }}
+              {{
+                (activeChannel() === 'team' ? 'chat.teamEmptyBody' : 'chat.directEmptyBody')
+                  | translate
+              }}
             </p>
             <div class="mt-3 space-y-1.5">
-              @for (key of suggestionKeys; track key) {
-                <button type="button" (click)="useSuggestion(key)" class="ai-suggestion">
-                  <span class="min-w-0 flex-1">{{ key | translate }}</span>
+              @for (suggestion of suggestions(); track suggestion) {
+                <button type="button" (click)="useSuggestion(suggestion)" class="ai-suggestion">
+                  <span class="min-w-0 flex-1">{{ suggestion }}</span>
                   <ng-icon
                     name="heroArrowUpRight"
                     class="shrink-0 text-xs text-fg-subtle"
@@ -129,7 +168,7 @@
             </div>
           } @else {
             <div class="space-y-4">
-              @for (msg of aiChatMessages(); track msg.id) {
+              @for (msg of chatMessages(); track msg.id) {
                 @if (msg.role === 'user' && msg.author.userId === myUserId) {
                   <!-- Mis mensajes, a la derecha -->
                   <div class="flex flex-col items-end gap-1.5" [class.opacity-60]="msg.pending">
@@ -141,11 +180,11 @@
                       />
                     }
                     <div class="ai-bubble-user">
-                      <p class="whitespace-pre-wrap">{{ msg.text }}</p>
+                      <p class="whitespace-pre-wrap" [innerHTML]="formatText(msg.text)"></p>
                     </div>
                   </div>
                 } @else if (msg.role === 'user') {
-                  <!-- Mensajes de otras personas de la pizarra, con su nombre y color -->
+                  <!-- Mensajes de otras personas del equipo, con su nombre y color -->
                   <div class="flex items-start gap-2">
                     <span class="ai-avatar" [style.background]="colorOf(msg)">
                       {{ initialOf(msg.author.userName) }}
@@ -164,110 +203,144 @@
                           alt=""
                         />
                       }
-                      <div class="ai-bubble-peer">
-                        <p class="whitespace-pre-wrap">{{ msg.text }}</p>
+                      <div
+                        class="ai-bubble-peer"
+                        [class.is-mention]="myUserId && msg.mentions?.includes(myUserId)"
+                      >
+                        <p class="whitespace-pre-wrap" [innerHTML]="formatText(msg.text)"></p>
                       </div>
                     </div>
                   </div>
                 } @else {
-                  <div class="space-y-2">
-                    <div class="flex items-center gap-2 text-[11px] text-fg-subtle">
-                      <ng-icon name="heroSparkles" class="text-xs text-accent-fg"></ng-icon>
-                      <span class="font-medium text-fg-muted">{{ 'ai.title' | translate }}</span>
-                      @if (askerOf(msg); as asker) {
-                        <span>{{ 'ai.replyingTo' | translate }} {{ asker }}</span>
-                      }
-                      <span>· {{ msg.createdAt | date: 'HH:mm' }}</span>
-                      @if (msg.model) {
-                        <span class="truncate" [title]="msg.latencyMs ? msg.latencyMs + ' ms' : ''">
-                          · {{ msg.model }}
-                        </span>
+                  <!-- Trazo, un miembro más del equipo -->
+                  <div class="flex items-start gap-2">
+                    <span class="ai-avatar chat-trazo-avatar">
+                      <ng-icon name="heroSparkles" class="text-xs"></ng-icon>
+                    </span>
+                    <div class="min-w-0 flex-1 space-y-2">
+                      <div
+                        class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-fg-subtle"
+                      >
+                        <span class="font-medium text-fg-muted">{{ 'ai.title' | translate }}</span>
+                        <span class="chat-bot-badge">{{ 'chat.aiBadge' | translate }}</span>
+                        @if (askerOf(msg); as asker) {
+                          <span>{{ 'ai.replyingTo' | translate }} {{ asker }}</span>
+                        }
+                        @if (msg.diagramName) {
+                          @if (msg.diagramId !== diagramId()) {
+                            <button
+                              type="button"
+                              (click)="goToDiagram(msg)"
+                              class="chat-ref chat-ref-link"
+                              [title]="'chat.openThisDiagram' | translate"
+                            >
+                              {{ tagOf(msg.diagramName) }}
+                            </button>
+                          } @else {
+                            <span class="chat-ref">{{ tagOf(msg.diagramName) }}</span>
+                          }
+                        }
+                        <span>· {{ msg.createdAt | date: 'HH:mm' }}</span>
+                        @if (msg.model) {
+                          <span
+                            class="truncate"
+                            [title]="msg.latencyMs ? msg.latencyMs + ' ms' : ''"
+                          >
+                            · {{ msg.model }}
+                          </span>
+                        }
+                      </div>
+
+                      @if (msg.status === 'clarification') {
+                        <div class="ai-note ai-note-warning">
+                          <p class="mb-1 text-[12px] font-semibold">
+                            {{ 'ai.needsClarification' | translate }}
+                          </p>
+                          <p
+                            class="whitespace-pre-wrap"
+                            [innerHTML]="
+                              formatText(msg.text || ('ai.clarificationDefault' | translate))
+                            "
+                          ></p>
+                        </div>
+                      } @else if (msg.status === 'error') {
+                        <div class="ai-note ai-note-error">
+                          <p class="whitespace-pre-wrap">{{ msg.text }}</p>
+                        </div>
+                      } @else {
+                        <p
+                          class="ai-reply text-[13px] leading-relaxed whitespace-pre-wrap text-fg"
+                          [innerHTML]="formatText(msg.text)"
+                        ></p>
+                        @if (msg.intent === 'propose' && msg.proposal) {
+                          <!-- Propuesta: cualquiera con permiso de edición puede aplicarla -->
+                          <div class="ai-changes ai-proposal">
+                            <ng-icon
+                              name="heroLightBulb"
+                              class="mt-px shrink-0 text-sm text-accent-fg"
+                            ></ng-icon>
+                            <div class="min-w-0 flex-1">
+                              <p
+                                class="text-[11px] font-semibold tracking-wide text-accent-fg uppercase"
+                              >
+                                {{ 'ai.proposal' | translate }}
+                              </p>
+                              <p class="mt-0.5 text-[12.5px] text-fg-muted">
+                                {{ msg.changesSummary }}
+                              </p>
+                              @if (msg.proposal.state === 'applied') {
+                                <p class="mt-1.5 flex items-center gap-1 text-[12px] text-fg-muted">
+                                  <ng-icon
+                                    name="heroCheck"
+                                    class="text-sm text-accent-fg"
+                                  ></ng-icon>
+                                  {{ 'ai.appliedBy' | translate }}
+                                  {{ msg.proposal.appliedBy?.userName }}
+                                </p>
+                              } @else if (canEdit()) {
+                                <button
+                                  type="button"
+                                  (click)="applyProposal(msg)"
+                                  [disabled]="applyingIds().has(msg.id)"
+                                  class="btn btn-primary mt-2 !h-7 !px-2.5 !text-[12px]"
+                                >
+                                  {{
+                                    (applyingIds().has(msg.id) ? 'ai.applying' : 'ai.applyProposal')
+                                      | translate
+                                  }}
+                                </button>
+                              } @else {
+                                <p class="mt-1.5 text-[12px] text-fg-subtle">
+                                  {{ 'ai.proposalViewer' | translate }}
+                                </p>
+                              }
+                            </div>
+                          </div>
+                        } @else if (msg.changesSummary && msg.changesSummary !== msg.text) {
+                          <div class="ai-changes">
+                            <ng-icon
+                              name="heroCheck"
+                              class="mt-px shrink-0 text-sm text-accent-fg"
+                            ></ng-icon>
+                            <div class="min-w-0">
+                              <p
+                                class="text-[11px] font-semibold tracking-wide text-accent-fg uppercase"
+                              >
+                                {{ 'ai.changesApplied' | translate }}
+                              </p>
+                              <p class="mt-0.5 text-[12.5px] text-fg-muted">
+                                {{ msg.changesSummary }}
+                              </p>
+                            </div>
+                          </div>
+                        }
                       }
                     </div>
-
-                    @if (msg.status === 'clarification') {
-                      <div class="ai-note ai-note-warning">
-                        <p class="mb-1 text-[12px] font-semibold">
-                          {{ 'ai.needsClarification' | translate }}
-                        </p>
-                        <p class="whitespace-pre-wrap">
-                          {{ msg.text || ('ai.clarificationDefault' | translate) }}
-                        </p>
-                      </div>
-                    } @else if (msg.status === 'error') {
-                      <div class="ai-note ai-note-error">
-                        <p class="whitespace-pre-wrap">{{ msg.text }}</p>
-                      </div>
-                    } @else {
-                      <p
-                        class="ai-reply text-[13px] leading-relaxed whitespace-pre-wrap text-fg"
-                        [innerHTML]="formatReply(msg.text)"
-                      ></p>
-                      @if (msg.intent === 'propose' && msg.proposal) {
-                        <!-- Propuesta: cualquiera con permiso de edición puede aplicarla -->
-                        <div class="ai-changes ai-proposal">
-                          <ng-icon
-                            name="heroLightBulb"
-                            class="mt-px shrink-0 text-sm text-accent-fg"
-                          ></ng-icon>
-                          <div class="min-w-0 flex-1">
-                            <p
-                              class="text-[11px] font-semibold tracking-wide text-accent-fg uppercase"
-                            >
-                              {{ 'ai.proposal' | translate }}
-                            </p>
-                            <p class="mt-0.5 text-[12.5px] text-fg-muted">
-                              {{ msg.changesSummary }}
-                            </p>
-                            @if (msg.proposal.state === 'applied') {
-                              <p class="mt-1.5 flex items-center gap-1 text-[12px] text-fg-muted">
-                                <ng-icon name="heroCheck" class="text-sm text-accent-fg"></ng-icon>
-                                {{ 'ai.appliedBy' | translate }}
-                                {{ msg.proposal.appliedBy?.userName }}
-                              </p>
-                            } @else if (canEdit()) {
-                              <button
-                                type="button"
-                                (click)="applyProposal(msg)"
-                                [disabled]="applyingIds().has(msg.id)"
-                                class="btn btn-primary mt-2 !h-7 !px-2.5 !text-[12px]"
-                              >
-                                {{
-                                  (applyingIds().has(msg.id) ? 'ai.applying' : 'ai.applyProposal')
-                                    | translate
-                                }}
-                              </button>
-                            } @else {
-                              <p class="mt-1.5 text-[12px] text-fg-subtle">
-                                {{ 'ai.proposalViewer' | translate }}
-                              </p>
-                            }
-                          </div>
-                        </div>
-                      } @else if (msg.changesSummary && msg.changesSummary !== msg.text) {
-                        <div class="ai-changes">
-                          <ng-icon
-                            name="heroCheck"
-                            class="mt-px shrink-0 text-sm text-accent-fg"
-                          ></ng-icon>
-                          <div class="min-w-0">
-                            <p
-                              class="text-[11px] font-semibold tracking-wide text-accent-fg uppercase"
-                            >
-                              {{ 'ai.changesApplied' | translate }}
-                            </p>
-                            <p class="mt-0.5 text-[12.5px] text-fg-muted">
-                              {{ msg.changesSummary }}
-                            </p>
-                          </div>
-                        </div>
-                      }
-                    }
                   </div>
                 }
               }
 
-              @if (isAiProcessing() || collaboration.aiBusyFor() !== null) {
+              @if (isAiProcessing() || busyFor() !== null) {
                 <div class="flex items-center gap-2.5 text-[13px] text-fg-muted">
                   <span class="flex gap-1">
                     <span
@@ -280,8 +353,8 @@
                   </span>
                   <span class="flex flex-col">
                     <span>
-                      @if (collaboration.aiBusyFor(); as busyFor) {
-                        {{ 'ai.thinkingFor' | translate }} {{ firstName(busyFor) }}…
+                      @if (busyFor(); as busyName) {
+                        {{ 'ai.thinkingFor' | translate }} {{ firstName(busyName) }}…
                       } @else {
                         {{ 'ai.thinking' | translate }}
                       }
@@ -305,8 +378,32 @@
       (paste)="onPasteImage($event)"
       (dragover)="$event.preventDefault()"
       (drop)="onDropImage($event)"
-      class="island ai-prompt-bar"
+      class="island ai-prompt-bar relative"
     >
+      <!-- Autocompletado de @personas y #diagramas -->
+      @if (mentionOptions().length) {
+        <div class="chat-mentions" role="listbox">
+          @for (option of mentionOptions(); track option.insert; let i = $index) {
+            <button
+              type="button"
+              role="option"
+              [attr.aria-selected]="i === mentionIndex()"
+              [class.is-active]="i === mentionIndex()"
+              (mousedown)="$event.preventDefault(); pickMention(option)"
+              class="chat-mention-option"
+            >
+              @if (option.isTrazo) {
+                <ng-icon name="heroSparkles" class="text-xs text-accent-fg"></ng-icon>
+              }
+              <span class="font-medium text-fg">{{ option.label }}</span>
+              @if (option.hint) {
+                <span class="truncate text-fg-subtle">{{ option.hint }}</span>
+              }
+            </button>
+          }
+        </div>
+      }
+
       @if (attachedImageBase64() || isVoiceListening()) {
         <div class="flex flex-wrap items-center gap-2 px-2 pt-2">
           @if (attachedImageBase64()) {
@@ -340,7 +437,7 @@
 
       <div class="flex items-end gap-1 p-1.5">
         <!-- «+»: adjuntar una imagen (foto, archivo o captura); solo quien puede editar -->
-        <div class="relative shrink-0" [class.hidden]="!canEdit()">
+        <div class="relative shrink-0" [class.hidden]="!canEdit() || !diagramId()">
           <button
             type="button"
             (click)="isPlusMenuOpen.set(!isPlusMenuOpen())"
@@ -388,10 +485,17 @@
           (ngModelChange)="aiPrompt.set($event)"
           (keydown)="onAiInputKeyDown($any($event))"
           (focus)="onPromptFocus()"
-          (input)="autoGrow()"
+          (blur)="mentionOptions.set([])"
+          (input)="onPromptInput()"
+          (click)="onPromptInput()"
           rows="1"
           [placeholder]="
-            (attachedImageBase64() ? 'ai.placeholderImage' : 'ai.placeholder') | translate
+            (attachedImageBase64()
+              ? 'ai.placeholderImage'
+              : activeChannel() === 'team'
+                ? 'chat.teamPlaceholder'
+                : 'chat.directPlaceholder'
+            ) | translate
           "
           class="block max-h-32 min-h-9 flex-1 resize-none bg-transparent px-1.5 py-2 text-[14px] leading-5 text-fg outline-none placeholder:text-fg-subtle"
         ></textarea>
@@ -429,8 +533,8 @@
             class="btn btn-ghost btn-icon relative !h-9 !w-9 shrink-0 !rounded-xl"
           >
             <ng-icon name="heroChevronUp" class="text-base"></ng-icon>
-            @if (unreadCount()) {
-              <span class="ai-unread">{{ unreadCount() }}</span>
+            @if (totalUnread()) {
+              <span class="ai-unread">{{ totalUnread() }}</span>
             }
           </button>
         }

@@ -1,6 +1,7 @@
 import {
   Component,
   DestroyRef,
+  computed,
   inject,
   signal,
   input,
@@ -32,16 +33,19 @@ import {
   heroPencilSquare,
   heroChevronDown,
   heroLightBulb,
+  heroHashtag,
+  heroLockClosed,
 } from '@ng-icons/heroicons/outline';
 import { AuthService } from '../../../../../core/services/auth.service';
 import {
   AiAssistantService,
-  AiDiagramContext,
-  AiResponse,
+  ChatChannel,
   ChatMessage,
+  TRAZO_USER_ID,
 } from '../../../../../core/services/ai-assistant.service';
 import { CollaborationService } from '../../../../../core/services/collaboration.service';
 import { UmlClassNode, UmlConnection } from '../../../../../core/models/diagram.model';
+import { TranslatePipe, TranslationService } from '../../../../../core/i18n';
 
 /** Las fotos se reducen antes de enviarlas: el modelo no necesita más y viajan más rápido. */
 const MAX_IMAGE_SIDE = 1600;
@@ -49,8 +53,35 @@ const MAX_IMAGE_SIDE = 1600;
 const SLOW_REPLY_MS = 12_000;
 /** Si en este tiempo no llega la respuesta, se da por perdida (el backend espera hasta 3 min). */
 const REPLY_TIMEOUT_MS = 240_000;
+const TRAZO_MENTION = /(^|[^\p{L}\d_])@trazo\b/iu;
+/** Palabra que se está escribiendo justo antes del cursor y empieza por @ o #. */
+const MENTION_TRIGGER = /(^|\s)([@#])([\p{L}\d_-]*)$/u;
 
-import { TranslatePipe, TranslationService } from '../../../../../core/i18n';
+export interface ChatMember {
+  userId: string;
+  userName: string;
+}
+
+export interface ChatDiagram {
+  id: string;
+  name: string;
+}
+
+/** Opción del autocompletado de @personas y #diagramas. */
+interface MentionOption {
+  label: string;
+  hint: string;
+  insert: string;
+  isTrazo?: boolean;
+}
+
+const emptyByChannel = <T>(value: () => T): Record<ChatChannel, T> => ({
+  team: value(),
+  direct: value(),
+});
+
+/** «Diagrama de ventas» → «#Diagrama-de-ventas», igual que en el backend. */
+export const diagramTag = (name: string) => `#${name.trim().replace(/\s+/g, '-')}`;
 
 @Component({
   selector: 'app-ai-assistant-panel',
@@ -76,6 +107,8 @@ import { TranslatePipe, TranslationService } from '../../../../../core/i18n';
       heroPencilSquare,
       heroChevronDown,
       heroLightBulb,
+      heroHashtag,
+      heroLockClosed,
     }),
   ],
   templateUrl: './ai-assistant-panel.component.html',
@@ -98,11 +131,17 @@ export class AiAssistantPanelComponent implements OnDestroy {
   readonly dock = input<'bottom' | 'side'>('bottom');
   readonly dockChange = output<'bottom' | 'side'>();
   readonly closePanel = output<void>();
+  readonly projectId = input<string | null>(null);
+  /** Diagrama abierto en el editor (Trazo trabaja en él si no se indica otro con #). */
   readonly diagramId = input<string | null>(null);
+  readonly diagrams = input<ChatDiagram[]>([]);
+  readonly members = input<ChatMember[]>([]);
   readonly currentNodes = input<UmlClassNode[]>([]);
   readonly currentConnections = input<UmlConnection[]>([]);
-  /** Los lectores conversan con Trazo pero no editan, no envían imágenes ni aplican propuestas. */
+  /** Los lectores conversan pero no editan, no envían imágenes ni aplican propuestas. */
   readonly canEdit = input<boolean>(true);
+  /** El administrador del proyecto puede reiniciar el canal del equipo. */
+  readonly isAdmin = input<boolean>(false);
 
   // Outputs
   readonly applyMutation = output<{
@@ -111,12 +150,15 @@ export class AiAssistantPanelComponent implements OnDestroy {
     summary: string;
     rawResponse?: any;
   }>();
+  /** Abrir otro diagrama del proyecto (desde el enlace «en #Diagrama» de un mensaje). */
+  readonly openDiagram = output<string>();
 
   // Barra inferior: menú «+» y tarjeta de conversación plegable
   readonly isPlusMenuOpen = signal<boolean>(false);
   readonly isExpanded = signal<boolean>(false);
 
   // Estados reactivos internos
+  readonly activeChannel = signal<ChatChannel>('team');
   readonly isAiProcessing = signal<boolean>(false);
   readonly aiPrompt = signal<string>('');
   readonly attachedImageBase64 = signal<string | null>(null);
@@ -124,36 +166,54 @@ export class AiAssistantPanelComponent implements OnDestroy {
   readonly isVoiceListening = signal<boolean>(false);
   readonly showWebcamModal = signal<boolean>(false);
 
-  // Conversación compartida de la pizarra (vacía: pantalla de inicio con sugerencias)
-  readonly aiChatMessages = signal<ChatMessage[]>([]);
+  /** Mensajes del canal del equipo y de la conversación privada. */
+  readonly messagesByChannel = signal<Record<ChatChannel, ChatMessage[]>>(emptyByChannel(() => []));
+  readonly chatMessages = computed(() => this.messagesByChannel()[this.activeChannel()]);
   readonly isLoadingConversation = signal<boolean>(false);
-  /** Mensajes de otras personas llegados con la conversación plegada. */
-  readonly unreadCount = signal<number>(0);
+  /** Mensajes nuevos de otras personas que aún no se han visto en cada conversación. */
+  readonly unread = signal<Record<ChatChannel, number>>(emptyByChannel(() => 0));
+  readonly totalUnread = computed(() => this.unread().team + this.unread().direct);
   /** Propuestas que se están aplicando desde este navegador. */
   readonly applyingIds = signal<Set<string>>(new Set());
   /** Trazo tarda más de lo normal: su servidor (GPU en Modal) puede estar arrancando. */
   readonly isSlowReply = signal<boolean>(false);
-  private conversationId: string | null = null;
+  /** A quién responde Trazo ahora en la conversación visible (null si está libre). */
+  readonly busyFor = computed(() => this.collaboration.trazoBusyFor()[this.activeChannel()]);
+
+  // Autocompletado de @personas y #diagramas
+  readonly mentionOptions = signal<MentionOption[]>([]);
+  readonly mentionIndex = signal<number>(0);
+  private mentionStart = -1;
+
+  private conversationIds: Record<ChatChannel, string | null> = emptyByChannel(() => null);
   /** Mensaje propio que espera respuesta de Trazo (por su id provisional). */
   private pendingClientId: string | null = null;
   private slowTimer: ReturnType<typeof setTimeout> | null = null;
   private replyTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  readonly suggestionKeys = ['ai.suggestion1', 'ai.suggestion2', 'ai.suggestion3'];
-
   private speechRecognition: any = null;
   private webcamMediaStream: MediaStream | null = null;
 
+  readonly suggestions = computed(() => {
+    const open = this.diagrams().find((d) => d.id === this.diagramId());
+    const tag = open ? diagramTag(open.name) : '';
+    const keys =
+      this.activeChannel() === 'team'
+        ? ['chat.teamSuggestion1', 'chat.teamSuggestion2', 'chat.teamSuggestion3']
+        : ['ai.suggestion1', 'ai.suggestion2', 'ai.suggestion3'];
+    return keys.map((key) => this.i18n.t(key).replace('{diagram}', tag).replace(/\s+$/, ''));
+  });
+
   constructor() {
-    // Al abrir otro diagrama se carga su conversación
+    // Al cambiar de proyecto se cargan sus dos conversaciones y se sigue su canal
     effect(() => {
-      const diagramId = this.diagramId();
-      untracked(() => this.loadConversation(diagramId));
+      const projectId = this.projectId();
+      untracked(() => this.loadConversations(projectId));
     });
 
-    // Si Trazo tarda, se avisa a toda la sala de que su servidor puede estar arrancando
+    // Si Trazo tarda, se avisa de que su servidor puede estar arrancando
     effect(() => {
-      const busy = this.isAiProcessing() || this.collaboration.aiBusyFor() !== null;
+      const busy = this.isAiProcessing() || this.busyFor() !== null;
       if (this.slowTimer) clearTimeout(this.slowTimer);
       this.slowTimer = null;
       if (!busy) {
@@ -163,16 +223,16 @@ export class AiAssistantPanelComponent implements OnDestroy {
       this.slowTimer = setTimeout(() => this.isSlowReply.set(true), SLOW_REPLY_MS);
     });
 
-    this.collaboration.aiMessage$
+    this.collaboration.chatMessage$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((message) => this.upsertMessage(message));
-    this.collaboration.aiConversationReset$
+    this.collaboration.chatReset$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((conversation) => {
-        if (conversation.diagramId !== this.diagramId()) return;
-        this.conversationId = conversation.id;
-        this.aiChatMessages.set([]);
-        this.unreadCount.set(0);
+        if (conversation.projectId !== this.projectId()) return;
+        this.conversationIds[conversation.channel] = conversation.id;
+        this.setMessages(conversation.channel, []);
+        this.unread.update((u) => ({ ...u, [conversation.channel]: 0 }));
       });
   }
 
@@ -201,15 +261,19 @@ export class AiAssistantPanelComponent implements OnDestroy {
     return name.trim().split(/\s+/)[0] || name;
   }
 
+  tagOf(name: string): string {
+    return diagramTag(name);
+  }
+
   /** Nombre de quien hizo la pregunta que responde un mensaje de Trazo. */
   askerOf(message: ChatMessage): string | null {
     if (!message.replyTo) return null;
-    const asked = this.aiChatMessages().find((m) => m.id === message.replyTo);
+    const asked = this.chatMessages().find((m) => m.id === message.replyTo);
     return asked ? this.firstName(asked.author.userName) : null;
   }
 
-  /** Negritas y código en línea del texto de Trazo (el texto se escapa antes). */
-  formatReply(text: string): string {
+  /** Negritas, código, @menciones y #diagramas resaltados (el texto se escapa antes). */
+  formatText(text: string): string {
     const escaped = text
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -217,19 +281,110 @@ export class AiAssistantPanelComponent implements OnDestroy {
       .replace(/"/g, '&quot;');
     return escaped
       .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/`([^`\n]+)`/g, '<code>$1</code>');
+      .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+      .replace(/(^|[^\p{L}\d_&])([@#][\p{L}\d_-]+)/gu, '$1<span class="chat-ref">$2</span>');
+  }
+
+  selectChannel(channel: ChatChannel): void {
+    this.activeChannel.set(channel);
+    this.unread.update((u) => ({ ...u, [channel]: 0 }));
+    this.closeMentions();
+    this.scrollToBottom();
+    setTimeout(() => this.promptInputRef?.nativeElement.focus());
   }
 
   onAiInputKeyDown(event: KeyboardEvent): void {
+    const options = this.mentionOptions();
+    if (options.length) {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const step = event.key === 'ArrowDown' ? 1 : -1;
+        this.mentionIndex.set((this.mentionIndex() + step + options.length) % options.length);
+        return;
+      }
+      if (event.key === 'Enter' || event.key === 'Tab') {
+        event.preventDefault();
+        this.pickMention(options[this.mentionIndex()]);
+        return;
+      }
+      if (event.key === 'Escape') {
+        this.closeMentions();
+        return;
+      }
+    }
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       this.applyAiPrompt();
     }
   }
 
+  /** Abre el autocompletado si se está escribiendo una @mención o un #diagrama. */
+  onPromptInput(): void {
+    this.autoGrow();
+    const el = this.promptInputRef?.nativeElement;
+    if (!el) return;
+    const beforeCaret = el.value.slice(0, el.selectionStart ?? el.value.length);
+    const match = beforeCaret.match(MENTION_TRIGGER);
+    if (!match) {
+      this.closeMentions();
+      return;
+    }
+    const [, , trigger, query] = match;
+    const q = query.toLowerCase();
+    const options: MentionOption[] =
+      trigger === '@'
+        ? [
+            {
+              label: 'Trazo',
+              hint: this.i18n.t('chat.trazoHint'),
+              insert: '@Trazo',
+              isTrazo: true,
+            },
+            ...this.members()
+              .filter((m) => m.userId !== this.myUserId)
+              .map((m) => ({
+                label: m.userName,
+                hint: '',
+                insert: `@${this.firstName(m.userName)}`,
+              })),
+          ].filter((o) => o.label.toLowerCase().includes(q))
+        : this.diagrams()
+            .map((d) => ({
+              label: diagramTag(d.name),
+              hint: d.id === this.diagramId() ? this.i18n.t('chat.openDiagram') : '',
+              insert: diagramTag(d.name),
+            }))
+            .filter((o) => o.label.toLowerCase().includes(q));
+
+    this.mentionStart = beforeCaret.length - query.length - 1;
+    this.mentionOptions.set(options.slice(0, 8));
+    this.mentionIndex.set(0);
+  }
+
+  pickMention(option: MentionOption): void {
+    const el = this.promptInputRef?.nativeElement;
+    if (!el || this.mentionStart < 0) return;
+    const value = el.value;
+    const caret = el.selectionStart ?? value.length;
+    const next = `${value.slice(0, this.mentionStart)}${option.insert} ${value.slice(caret)}`;
+    const position = this.mentionStart + option.insert.length + 1;
+    // Se escribe ya en el campo: si se espera a ngModel, lo que se teclee enseguida lo pisa
+    el.value = next;
+    el.setSelectionRange(position, position);
+    this.aiPrompt.set(next);
+    this.closeMentions();
+    el.focus();
+    this.autoGrow();
+  }
+
+  private closeMentions(): void {
+    this.mentionOptions.set([]);
+    this.mentionStart = -1;
+  }
+
   /** Copia la sugerencia al cuadro de texto para que el usuario la ajuste antes de enviarla. */
-  useSuggestion(key: string): void {
-    this.aiPrompt.set(this.i18n.t(key));
+  useSuggestion(text: string): void {
+    this.aiPrompt.set(text);
     setTimeout(() => this.promptInputRef?.nativeElement.focus());
   }
 
@@ -239,14 +394,16 @@ export class AiAssistantPanelComponent implements OnDestroy {
     this.dockChange.emit(next);
   }
 
-  /** Empieza una conversación nueva para toda la pizarra (la anterior queda guardada). */
+  /** Empieza una conversación nueva (la anterior queda guardada en el historial). */
   newChat(): void {
-    const diagramId = this.diagramId();
-    if (!diagramId || !this.canEdit()) return;
-    if (!confirm(this.i18n.t('ai.newChatConfirm'))) return;
-    this.aiService.startConversation(diagramId).subscribe((conversation) => {
-      this.conversationId = conversation.id;
-      this.aiChatMessages.set([]);
+    const projectId = this.projectId();
+    const channel = this.activeChannel();
+    if (!projectId || (channel === 'team' && !this.isAdmin())) return;
+    const confirmKey = channel === 'team' ? 'chat.resetTeamConfirm' : 'chat.resetDirectConfirm';
+    if (!confirm(this.i18n.t(confirmKey))) return;
+    this.aiService.resetConversation(projectId, channel).subscribe((conversation) => {
+      this.conversationIds[channel] = conversation.id;
+      this.setMessages(channel, []);
     });
     this.aiPrompt.set('');
     this.removeAttachedImage();
@@ -254,13 +411,13 @@ export class AiAssistantPanelComponent implements OnDestroy {
 
   expand(): void {
     this.isExpanded.set(true);
-    this.unreadCount.set(0);
+    this.unread.update((u) => ({ ...u, [this.activeChannel()]: 0 }));
     this.scrollToBottom();
   }
 
   /** Al enfocar la barra sin conversación (o con mensajes nuevos) se despliega. */
   onPromptFocus(): void {
-    if (!this.aiChatMessages().length || this.unreadCount()) this.expand();
+    if (!this.chatMessages().length || this.totalUnread()) this.expand();
   }
 
   /** La barra crece con el texto (hasta el máximo del CSS). */
@@ -272,139 +429,194 @@ export class AiAssistantPanelComponent implements OnDestroy {
   }
 
   // -------------------------------------------------------------
-  // CONVERSACIÓN COMPARTIDA
+  // CONVERSACIONES
   // -------------------------------------------------------------
-  private loadConversation(diagramId: string | null): void {
-    this.conversationId = null;
-    this.aiChatMessages.set([]);
-    this.unreadCount.set(0);
-    if (!diagramId) return;
+  private loadConversations(projectId: string | null): void {
+    this.conversationIds = emptyByChannel(() => null);
+    this.messagesByChannel.set(emptyByChannel(() => []));
+    this.unread.set(emptyByChannel(() => 0));
+    if (!projectId) return;
 
+    this.collaboration.joinProject(projectId);
     this.isLoadingConversation.set(true);
-    this.aiService.getConversation(diagramId).subscribe({
-      next: (conversation) => {
-        if (diagramId !== this.diagramId()) return;
-        this.conversationId = conversation.id;
-        // Lo que llegó por el socket mientras cargaba se conserva
-        const known = new Set(conversation.messages.map((m) => m.id));
-        const live = this.aiChatMessages().filter(
-          (m) => !known.has(m.id) && (!m.conversationId || m.conversationId === conversation.id),
-        );
-        this.aiChatMessages.set([...conversation.messages, ...live]);
-        this.isLoadingConversation.set(false);
-        if (conversation.messages.length) this.scrollToBottom();
-      },
-      error: () => this.isLoadingConversation.set(false),
-    });
+    let pending = 2;
+    for (const channel of ['team', 'direct'] as ChatChannel[]) {
+      this.aiService.getConversation(projectId, channel).subscribe({
+        next: (conversation) => {
+          if (projectId !== this.projectId()) return;
+          this.conversationIds[channel] = conversation.id;
+          // Lo que llegó por el socket mientras cargaba se conserva
+          const known = new Set(conversation.messages.map((m) => m.id));
+          const live = this.messagesByChannel()[channel].filter(
+            (m) => !known.has(m.id) && (!m.conversationId || m.conversationId === conversation.id),
+          );
+          this.setMessages(channel, [...conversation.messages, ...live]);
+          if (channel === this.activeChannel()) this.scrollToBottom();
+        },
+        complete: () => {
+          if (--pending === 0) this.isLoadingConversation.set(false);
+        },
+        error: () => {
+          if (--pending === 0) this.isLoadingConversation.set(false);
+        },
+      });
+    }
+  }
+
+  private setMessages(channel: ChatChannel, messages: ChatMessage[]): void {
+    this.messagesByChannel.update((all) => ({ ...all, [channel]: messages }));
   }
 
   /** Añade o actualiza un mensaje (el propio provisional se sustituye por el del servidor). */
   private upsertMessage(message: ChatMessage): void {
-    if (this.conversationId && message.conversationId !== this.conversationId) return;
+    if (message.projectId !== this.projectId()) return;
+    const channel = message.channel;
+    const conversationId = this.conversationIds[channel];
+    if (conversationId && message.conversationId !== conversationId) return;
 
     let isNew = false;
-    this.aiChatMessages.update((list) => {
-      const index = list.findIndex(
-        (m) =>
-          m.id === message.id ||
-          (!!message.clientId && m.pending && m.clientId === message.clientId),
-      );
-      if (index < 0) {
-        isNew = true;
-        return [...list, message];
-      }
+    const list = this.messagesByChannel()[channel];
+    const index = list.findIndex(
+      (m) =>
+        m.id === message.id || (!!message.clientId && m.pending && m.clientId === message.clientId),
+    );
+    if (index < 0) {
+      isNew = true;
+      this.setMessages(channel, [...list, message]);
+    } else {
       const next = [...list];
       next[index] = { ...message, image: message.image || list[index].image };
-      return next;
-    });
+      this.setMessages(channel, next);
+    }
 
-    // Llegó la respuesta de Trazo a mi mensaje (por el socket, como al resto de la sala)
+    // Llegó la respuesta de Trazo a mi mensaje
     if (message.role === 'assistant' && this.pendingClientId && message.replyTo) {
-      const asked = this.aiChatMessages().find((m) => m.id === message.replyTo);
+      const asked = this.messagesByChannel()[channel].find((m) => m.id === message.replyTo);
       if (asked?.clientId === this.pendingClientId) this.finishPending();
     }
 
-    if (!isNew) return;
-    // Lo que pregunta o recibe otra persona también aparece aquí
-    if (message.author.userId !== this.myUserId && this.dock() === 'bottom' && !this.isExpanded()) {
-      this.unreadCount.update((n) => n + 1);
+    if (!isNew || message.author.userId === this.myUserId) {
+      if (isNew && channel === this.activeChannel()) this.scrollToBottom();
+      return;
     }
-    this.scrollToBottom();
+    const hidden =
+      channel !== this.activeChannel() || (this.dock() === 'bottom' && !this.isExpanded());
+    if (hidden) this.unread.update((u) => ({ ...u, [channel]: u[channel] + 1 }));
+    else this.scrollToBottom();
   }
 
   // -------------------------------------------------------------
-  // PROMPT / ENVÍO DE MENSAJES (TEXTO / VISIÓN)
+  // ENVÍO DE MENSAJES (TEXTO / VISIÓN)
   // -------------------------------------------------------------
   applyAiPrompt(): void {
-    const promptText = this.aiPrompt().trim();
+    const text = this.aiPrompt().trim();
     const imageBase64 = this.attachedImageBase64();
+    const channel = this.activeChannel();
+    const projectId = this.projectId();
 
-    if ((!promptText && !imageBase64) || this.isAiProcessing()) {
+    if ((!text && !imageBase64) || this.isAiProcessing()) {
       return;
     }
-
-    const diagramId = this.diagramId();
-    if (!diagramId) {
+    if (!projectId || (imageBase64 && !this.diagramId())) {
       this.addLocalError(this.i18n.t('ai.noDiagram'));
       return;
     }
 
-    // Mensaje provisional: el servidor lo confirma y lo reparte a toda la pizarra
+    const callsTrazo = channel === 'direct' || !!imageBase64 || TRAZO_MENTION.test(text);
+    const mentions = this.mentionedUserIds(text);
+
+    // Mensaje provisional: el servidor lo confirma y lo reparte
     const user = this.authService.currentUser();
     const clientId = `c-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    this.aiChatMessages.update((msgs) => [
-      ...msgs,
+    this.setMessages(channel, [
+      ...this.messagesByChannel()[channel],
       {
         id: clientId,
         clientId,
         pending: true,
-        conversationId: this.conversationId || '',
+        conversationId: this.conversationIds[channel] || '',
+        projectId,
+        channel,
         role: 'user',
         author: { userId: user?.id || '', userName: user?.fullName || '' },
-        text: promptText || this.i18n.t('ai.imageRequest'),
+        text: text || this.i18n.t('ai.imageRequest'),
+        mentions,
         image: imageBase64 || undefined,
         status: 'success',
         createdAt: new Date().toISOString(),
       },
     ]);
-
-    this.isAiProcessing.set(true);
-    this.pendingClientId = clientId;
     this.expand();
-    // Si la respuesta no llega (servidor de IA caído sin aviso), se libera la barra
-    if (this.replyTimeout) clearTimeout(this.replyTimeout);
-    this.replyTimeout = setTimeout(() => {
-      if (this.pendingClientId !== clientId) return;
-      this.finishPending();
-      this.addLocalError(this.i18n.t('ai.noReply'));
-    }, REPLY_TIMEOUT_MS);
 
-    const context: AiDiagramContext = {
-      diagramId,
+    if (callsTrazo) {
+      this.isAiProcessing.set(true);
+      this.pendingClientId = clientId;
+      // Si la respuesta no llega (servidor de IA caído sin aviso), se libera la barra
+      if (this.replyTimeout) clearTimeout(this.replyTimeout);
+      this.replyTimeout = setTimeout(() => {
+        if (this.pendingClientId !== clientId) return;
+        this.finishPending();
+        this.addLocalError(this.i18n.t('ai.noReply'));
+      }, REPLY_TIMEOUT_MS);
+    }
+
+    const openDiagram = {
+      activeDiagramId: this.diagramId() || undefined,
       currentNodes: this.currentNodes(),
       currentConnections: this.currentConnections(),
-      clientId,
     };
     const request$ = imageBase64
       ? this.aiService.sendVisionPrompt(
           imageBase64,
           'image/jpeg',
-          promptText || 'Analiza este boceto/diagrama y digitalízalo como entidades UML completas.',
-          context,
+          text || 'Analiza este boceto/diagrama y digitalízalo como entidades UML completas.',
+          {
+            diagramId: this.diagramId()!,
+            channel,
+            clientId,
+            currentNodes: this.currentNodes(),
+            currentConnections: this.currentConnections(),
+          },
         )
-      : this.aiService.sendTextPrompt(promptText, context);
+      : this.aiService.sendMessage(projectId, {
+          channel,
+          text,
+          mentions,
+          clientId,
+          ...openDiagram,
+        });
 
-    // El servidor solo confirma el mensaje; la respuesta de Trazo y los cambios del diagrama
-    // llegan por el socket (ai_message y diagram_synced), igual que a los demás
+    // El servidor confirma el mensaje; la respuesta de Trazo y los cambios del diagrama llegan
+    // por el socket (chat_message y diagram_synced), igual que a los demás
     request$.subscribe({
-      next: (accepted) => this.upsertMessage(accepted.userMessage),
-      error: (err) => this.handleAiError(err, clientId),
+      next: (accepted) => {
+        this.upsertMessage(accepted.message);
+        if (accepted.status === 'sent' && this.pendingClientId === clientId) {
+          this.finishPending();
+        }
+      },
+      error: (err) => this.handleAiError(err, clientId, channel),
     });
 
     this.aiPrompt.set('');
     this.attachedImageBase64.set(null);
     this.attachedImageName.set(null);
+    this.closeMentions();
     setTimeout(() => this.autoGrow());
+  }
+
+  /** Personas mencionadas como @Nombre (por su nombre de pila). */
+  private mentionedUserIds(text: string): string[] {
+    const ids = this.members()
+      .filter((m) =>
+        new RegExp(
+          `(^|[^\\p{L}\\d_])@${this.firstName(m.userName).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}\\d_])`,
+          'iu',
+        ).test(text),
+      )
+      .map((m) => m.userId);
+    if (TRAZO_MENTION.test(text)) ids.push(TRAZO_USER_ID);
+    return [...new Set(ids)];
   }
 
   private finishPending(): void {
@@ -414,27 +626,29 @@ export class AiAssistantPanelComponent implements OnDestroy {
     this.replyTimeout = null;
   }
 
-  private handleAiError(err: any, clientId?: string): void {
-    this.finishPending();
+  private handleAiError(err: any, clientId: string, channel: ChatChannel): void {
+    if (this.pendingClientId === clientId) this.finishPending();
     // El mensaje no llegó a guardarse: se retira el provisional
-    if (clientId) {
-      this.aiChatMessages.update((msgs) =>
-        msgs.filter((m) => !(m.pending && m.clientId === clientId)),
-      );
-    }
+    this.setMessages(
+      channel,
+      this.messagesByChannel()[channel].filter((m) => !(m.pending && m.clientId === clientId)),
+    );
     const msg = err.error?.message || err.message || this.i18n.t('ai.connectionError');
     this.addLocalError(this.i18n.t('ai.errorPrefix') + msg);
   }
 
-  /** Aviso solo para esta persona (no se guarda en la conversación compartida). */
+  /** Aviso solo para esta persona (no se guarda en la conversación). */
   private addLocalError(text: string): void {
-    this.aiChatMessages.update((msgs) => [
-      ...msgs,
+    const channel = this.activeChannel();
+    this.setMessages(channel, [
+      ...this.messagesByChannel()[channel],
       {
         id: 'local-err-' + Date.now(),
-        conversationId: this.conversationId || '',
+        conversationId: this.conversationIds[channel] || '',
+        projectId: this.projectId() || '',
+        channel,
         role: 'assistant',
-        author: { userId: 'ai_assistant', userName: 'Trazo' },
+        author: { userId: TRAZO_USER_ID, userName: 'Trazo' },
         text,
         status: 'error',
         createdAt: new Date().toISOString(),
@@ -443,7 +657,14 @@ export class AiAssistantPanelComponent implements OnDestroy {
     this.expand();
   }
 
-  /** Aplica la propuesta de Trazo al diagrama; la sala ve quién la aplicó. */
+  /** Abre el diagrama en el que trabajó Trazo, si no es el que está abierto. */
+  goToDiagram(message: ChatMessage): void {
+    if (message.diagramId && message.diagramId !== this.diagramId()) {
+      this.openDiagram.emit(message.diagramId);
+    }
+  }
+
+  /** Aplica la propuesta de Trazo a su diagrama; todos ven quién la aplicó. */
   applyProposal(message: ChatMessage): void {
     if (!this.canEdit() || this.applyingIds().has(message.id)) return;
     this.applyingIds.update((ids) => new Set(ids).add(message.id));
@@ -453,19 +674,31 @@ export class AiAssistantPanelComponent implements OnDestroy {
         next.delete(message.id);
         return next;
       });
+    const isOpen = message.diagramId === this.diagramId();
 
     this.aiService
-      .applyProposal(message.id, this.currentNodes(), this.currentConnections())
+      .applyProposal(
+        message.id,
+        isOpen
+          ? {
+              activeDiagramId: this.diagramId()!,
+              currentNodes: this.currentNodes(),
+              currentConnections: this.currentConnections(),
+            }
+          : {},
+      )
       .subscribe({
         next: (res) => {
           done();
           if (res.assistantMessage) this.upsertMessage(res.assistantMessage);
-          this.applyMutation.emit({
-            nodes: res.nodes,
-            connections: res.connections || [],
-            summary: res.changesSummary,
-            rawResponse: res,
-          });
+          if (isOpen) {
+            this.applyMutation.emit({
+              nodes: res.nodes,
+              connections: res.connections || [],
+              summary: res.changesSummary,
+              rawResponse: res,
+            });
+          }
         },
         error: (err) => {
           done();
