@@ -36,6 +36,8 @@ import {
   heroHashtag,
   heroLockClosed,
   heroAdjustmentsHorizontal,
+  heroEye,
+  heroEyeSlash,
 } from '@ng-icons/heroicons/outline';
 import { AuthService } from '../../../../../core/services/auth.service';
 import {
@@ -96,6 +98,8 @@ export const diagramTag = (name: string) => `#${name.trim().replace(/\s+/g, '-')
   providers: [
     provideIcons({
       heroAdjustmentsHorizontal,
+      heroEye,
+      heroEyeSlash,
       heroSparkles,
       heroPlus,
       heroChevronUp,
@@ -147,6 +151,9 @@ export class AiAssistantPanelComponent implements OnDestroy {
   readonly canEdit = input<boolean>(true);
   /** El administrador del proyecto puede reiniciar el canal del equipo. */
   readonly isAdmin = input<boolean>(false);
+  /** Propuesta que se ve ahora en el lienzo y la que se está calculando. */
+  readonly previewingId = input<string | null>(null);
+  readonly loadingPreviewId = input<string | null>(null);
 
   // Outputs
   readonly applyMutation = output<{
@@ -157,6 +164,8 @@ export class AiAssistantPanelComponent implements OnDestroy {
   }>();
   /** Abrir otro diagrama del proyecto (desde el enlace «en #Diagrama» de un mensaje). */
   readonly openDiagram = output<string>();
+  /** Ver en el lienzo cómo quedaría una propuesta (o salir de la vista previa). */
+  readonly previewProposal = output<ChatMessage>();
 
   // Barra inferior: menú «+» y tarjeta de conversación plegable
   readonly isPlusMenuOpen = signal<boolean>(false);

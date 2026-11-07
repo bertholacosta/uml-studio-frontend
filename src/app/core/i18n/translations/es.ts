@@ -428,6 +428,16 @@ export const es = {
     teamPlaceholder: 'Mensaje al equipo… @Trazo para la IA, #Diagrama para el lienzo',
     directPlaceholder: 'Mensaje privado para Trazo…',
   },
+  preview: {
+    title: 'Vista previa de la propuesta de Trazo',
+    added: 'nuevo',
+    changed: 'cambia',
+    removed: 'se quita',
+    stale: 'El diagrama cambió mientras tanto: vuelve a abrir la vista previa para verla al día.',
+    exit: 'Salir',
+    exitHint: 'Volver al diagrama (Esc)',
+    error: 'No se pudo calcular la vista previa.',
+  },
   trazoSettings: {
     title: 'Configurar Trazo',
     open: 'Configurar Trazo',
@@ -516,6 +526,8 @@ export const es = {
     applying: 'Aplicando…',
     appliedBy: 'Aplicada por',
     proposalViewer: 'Un editor del proyecto puede aplicarla.',
+    previewProposal: 'Vista previa',
+    exitPreview: 'Salir de la vista previa',
     changesApplied: 'Cambios aplicados',
     needsClarification: 'Necesito un detalle más',
     clarificationDefault:

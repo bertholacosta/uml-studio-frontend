@@ -339,6 +339,10 @@
   --uml-node-fg: #ffffff;
   --uml-highlight: #ff8148;
   --uml-grid: rgb(242 240 232 / 0.05);
+  /* Vista previa de propuestas: nuevo, se quita, cambia */
+  --uml-added: #6fcf97;
+  --uml-removed: #ef6461;
+  --uml-changed: #f2c14e;
 }
 
 /* Lienzo claro: es el único lugar de la app con modo claro */
@@ -350,6 +354,9 @@
   --uml-node-fg: #1a1a1a;
   --uml-highlight: #ff6b2c;
   --uml-grid: rgb(0 0 0 / 0.09);
+  --uml-added: #15803d;
+  --uml-removed: #c62828;
+  --uml-changed: #b45309;
 }
 
 f-flow .f-canvas,
@@ -1307,4 +1314,63 @@ f-flow f-connection.f-selected .f-connection-path {
   box-shadow:
     0 8px 28px rgb(0 0 0 / 0.28),
     0 0 0 3px rgb(255 107 44 / 0.12);
+}
+
+/* =========================================================================
+   VISTA PREVIA DE UNA PROPUESTA DE TRAZO
+   Verde: nuevo · rojo tachado: se quita · ámbar: cambia
+   ========================================================================= */
+
+f-flow .f-node.uml-class-node.uml-preview-added {
+  border-color: var(--uml-added) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--uml-added) 30%, transparent) !important;
+}
+f-flow .f-node.uml-class-node.uml-preview-changed {
+  border-color: var(--uml-changed) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--uml-changed) 25%, transparent) !important;
+}
+f-flow .f-node.uml-class-node.uml-preview-removed {
+  border: 1px dashed var(--uml-removed) !important;
+  opacity: 0.55;
+}
+f-flow .f-node.uml-preview-removed .uml-class-header,
+.uml-preview-row-removed {
+  color: var(--uml-removed);
+  text-decoration: line-through;
+}
+.uml-preview-row-added {
+  color: var(--uml-added);
+  font-weight: 600;
+}
+.uml-preview-row-changed {
+  color: var(--uml-changed);
+  font-weight: 600;
+}
+
+f-flow f-connection.uml-preview-conn-added path[f-connection-path],
+f-flow f-connection.uml-preview-conn-added .f-connection-path {
+  stroke: var(--uml-added) !important;
+  stroke-width: 2.4px !important;
+}
+f-flow f-connection.uml-preview-conn-changed path[f-connection-path],
+f-flow f-connection.uml-preview-conn-changed .f-connection-path {
+  stroke: var(--uml-changed) !important;
+  stroke-width: 2.4px !important;
+}
+f-flow f-connection.uml-preview-conn-removed path[f-connection-path],
+f-flow f-connection.uml-preview-conn-removed .f-connection-path {
+  stroke: var(--uml-removed) !important;
+  stroke-dasharray: 6 4 !important;
+  opacity: 0.7;
+}
+
+/* Leyenda de la barra de vista previa (fuera del lienzo, tema oscuro de la app) */
+.uml-preview-legend-added {
+  color: var(--color-success);
+}
+.uml-preview-legend-changed {
+  color: var(--color-warning);
+}
+.uml-preview-legend-removed {
+  color: var(--color-danger);
 }

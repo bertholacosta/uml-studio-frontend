@@ -314,22 +314,57 @@
                                   {{ 'ai.appliedBy' | translate }}
                                   {{ msg.proposal.appliedBy?.userName }}
                                 </p>
-                              } @else if (canEdit()) {
-                                <button
-                                  type="button"
-                                  (click)="applyProposal(msg)"
-                                  [disabled]="applyingIds().has(msg.id)"
-                                  class="btn btn-primary mt-2 !h-7 !px-2.5 !text-[12px]"
-                                >
-                                  {{
-                                    (applyingIds().has(msg.id) ? 'ai.applying' : 'ai.applyProposal')
-                                      | translate
-                                  }}
-                                </button>
                               } @else {
-                                <p class="mt-1.5 text-[12px] text-fg-subtle">
-                                  {{ 'ai.proposalViewer' | translate }}
-                                </p>
+                                <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                                  @if (canEdit()) {
+                                    <button
+                                      type="button"
+                                      (click)="applyProposal(msg)"
+                                      [disabled]="applyingIds().has(msg.id)"
+                                      class="btn btn-primary !h-7 !px-2.5 !text-[12px]"
+                                    >
+                                      {{
+                                        (applyingIds().has(msg.id)
+                                          ? 'ai.applying'
+                                          : 'ai.applyProposal'
+                                        ) | translate
+                                      }}
+                                    </button>
+                                  }
+                                  <!-- Vista previa en el lienzo, si la propuesta es del diagrama abierto -->
+                                  @if (msg.diagramId && msg.diagramId === diagramId()) {
+                                    <button
+                                      type="button"
+                                      (click)="previewProposal.emit(msg)"
+                                      [disabled]="loadingPreviewId() === msg.id"
+                                      [attr.aria-pressed]="previewingId() === msg.id"
+                                      class="btn btn-ghost !h-7 gap-1 !px-2 !text-[12px]"
+                                      data-proposal-preview
+                                    >
+                                      @if (loadingPreviewId() === msg.id) {
+                                        <span class="spinner !h-3 !w-3"></span>
+                                      } @else {
+                                        <ng-icon
+                                          [name]="
+                                            previewingId() === msg.id ? 'heroEyeSlash' : 'heroEye'
+                                          "
+                                          class="text-sm"
+                                        ></ng-icon>
+                                      }
+                                      {{
+                                        (previewingId() === msg.id
+                                          ? 'ai.exitPreview'
+                                          : 'ai.previewProposal'
+                                        ) | translate
+                                      }}
+                                    </button>
+                                  }
+                                </div>
+                                @if (!canEdit()) {
+                                  <p class="mt-1.5 text-[12px] text-fg-subtle">
+                                    {{ 'ai.proposalViewer' | translate }}
+                                  </p>
+                                }
                               }
                             </div>
                           </div>

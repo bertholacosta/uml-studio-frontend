@@ -66,6 +66,17 @@ export interface AiResponse {
   assistantMessage?: ChatMessage;
 }
 
+/** Cómo quedaría el diagrama con una propuesta de Trazo (sin guardarlo). */
+export interface ProposalPreview {
+  messageId: string;
+  diagramId: string;
+  changesSummary: string;
+  nodes: UmlClassNode[];
+  connections: UmlConnection[];
+  /** Operaciones que ya no se pueden aplicar al diagrama actual. */
+  skipped: string[];
+}
+
 /** Respuesta inmediata: «queued» si llamó a Trazo, cuya respuesta llega después por el socket. */
 export interface ChatAccepted {
   status: 'sent' | 'queued';
@@ -164,6 +175,13 @@ export class AiAssistantService {
     return this.http
       .put<any>(`${this.apiUrl}/projects/${projectId}/trazo-settings`, values)
       .pipe(map((res) => (res && res.data ? res.data : res) as TrazoSettings));
+  }
+
+  /** Vista previa de una propuesta: cómo quedaría el diagrama abierto, sin guardarlo. */
+  previewProposal(messageId: string, openDiagram: OpenDiagram): Observable<ProposalPreview> {
+    return this.http
+      .post<any>(`${this.apiUrl}/chat/messages/${messageId}/preview`, openDiagram)
+      .pipe(map((res) => (res && res.data ? res.data : res) as ProposalPreview));
   }
 
   /** Aplica a su diagrama los cambios que Trazo propuso en un mensaje. */

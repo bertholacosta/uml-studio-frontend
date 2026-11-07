@@ -30,6 +30,7 @@ import {
   heroClipboardDocument,
   heroCheck,
   heroLockClosed,
+  heroEye,
   heroPencilSquare,
   heroMinus,
   heroPlus,
@@ -67,7 +68,9 @@ import { SpringBootModalComponent } from './components/spring-boot-modal/spring-
 import { ClassEditPanelComponent } from './components/class-edit-panel/class-edit-panel.component';
 import { RelationEditPanelComponent } from './components/relation-edit-panel/relation-edit-panel.component';
 import { DiagramHistory } from './diagram-history';
-import { TranslatePipe } from '../../../core/i18n';
+import { ChangeKind, diffProposal, memberKey, ProposalDiff } from './proposal-diff';
+import { ChatMessage } from '../../../core/services/ai-assistant.service';
+import { TranslatePipe, TranslationService } from '../../../core/i18n';
 
 export interface UmlDiagramProject {
   version: string;
@@ -132,6 +135,7 @@ const AUTOSAVE_RETRY_MS = { first: 2000, max: 30000 };
       heroClipboardDocument,
       heroCheck,
       heroLockClosed,
+      heroEye,
       heroPencilSquare,
       heroMinus,
       heroPlus,
@@ -150,6 +154,7 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
   readonly projectService = inject(ProjectService);
   readonly collaborationService = inject(CollaborationService);
   readonly aiAssistantService = inject(AiAssistantService);
+  private readonly i18n = inject(TranslationService);
   readonly xmiService = inject(XmiService);
   readonly bmpExportService = inject(BmpExportService);
   private readonly tour = inject(TourService);
@@ -193,7 +198,30 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
 
   // Rol del usuario actual en el proyecto
   currentUserRole = signal<string>('EDITOR');
-  readonly isReadOnly = computed(() => this.currentUserRole() === 'VIEWER');
+  readonly isViewer = computed(() => this.currentUserRole() === 'VIEWER');
+
+  /**
+   * Vista previa de una propuesta de Trazo: el lienzo muestra cómo quedaría el diagrama, con lo
+   * nuevo, lo que se quita y lo que cambia resaltado, y no se puede editar. `base` es el
+   * diagrama de verdad (lo que se guarda y se envía), que sigue recibiendo los cambios del equipo.
+   */
+  readonly proposalPreview = signal<{
+    message: ChatMessage;
+    diff: ProposalDiff;
+    base: { nodes: UmlClassNode[]; connections: UmlConnection[] };
+    /** Alguien cambió el diagrama durante la vista previa. */
+    stale: boolean;
+  } | null>(null);
+  readonly loadingPreviewId = signal<string | null>(null);
+  readonly isPreviewing = computed(() => this.proposalPreview() !== null);
+  /** Sin edición en el lienzo: lectores y durante la vista previa de una propuesta. */
+  readonly isReadOnly = computed(() => this.isViewer() || this.isPreviewing());
+  /** El diagrama de verdad, aunque el lienzo muestre una vista previa. */
+  readonly canvasNodes = computed(() => this.proposalPreview()?.base.nodes ?? this.nodes());
+  readonly canvasConnections = computed(
+    () => this.proposalPreview()?.base.connections ?? this.connections(),
+  );
+  @ViewChild(AiAssistantPanelComponent) aiPanel?: AiAssistantPanelComponent;
 
   // Lienzo: cuadrícula, transformación y selección
   readonly gridSize = 20;
@@ -358,14 +386,36 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.tour.notify('editor-ready');
     this.collaborationService.remoteNodeDrag$.subscribe((data) => {
-      this.nodes.update((list) =>
-        list.map((n) => (n.id === data.nodeId ? { ...n, position: data.position } : n)),
-      );
+      const move = (list: UmlClassNode[]) =>
+        list.map((n) => (n.id === data.nodeId ? { ...n, position: data.position } : n));
+      this.nodes.update(move);
       this.updateConnectionEndpoints();
+      if (this.proposalPreview()) {
+        this.proposalPreview.update(
+          (p) => p && { ...p, base: { ...p.base, nodes: move(p.base.nodes) } },
+        );
+        return;
+      }
       this.history.reset(this.snapshot());
     });
 
     this.collaborationService.remoteDiagramSync$.subscribe((data) => {
+      if (this.proposalPreview()) {
+        if (data.action === 'ai_mutation') {
+          this.exitProposalPreview();
+        } else {
+          // El diagrama de verdad sigue al equipo; la vista previa avisa de que puede no estar al día
+          if (data.nodes) {
+            const cleanNodes = this.applyAiNodesMutation(data.nodes);
+            const cleanConns = this.sanitizeClientConnections(data.connections || [], cleanNodes);
+            this.proposalPreview.update(
+              (p) =>
+                p && { ...p, stale: true, base: { nodes: cleanNodes, connections: cleanConns } },
+            );
+          }
+          return;
+        }
+      }
       if (data.action === 'ai_mutation' && data.nodes) {
         // Los cambios de Trazo ya los guardó el servidor
         this.applyAiMutationWithAnimation(data.nodes, data.connections || [], true);
@@ -390,6 +440,7 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
 
     this.route.queryParams.subscribe((params) => {
       // Lo pendiente del diagrama anterior se guarda antes de cambiar de diagrama
+      this.exitProposalPreview();
       this.flushAutosave();
       const diagramId = params['diagramId'];
       const projectId = params['projectId'];
@@ -450,6 +501,7 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
       this.collaborationService.releaseNodeLock(this.editingNodeId()!);
     }
     if (this.commitTimer) clearTimeout(this.commitTimer);
+    this.exitProposalPreview();
     this.flushPendingSync('update');
     this.flushAutosave();
     if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
@@ -562,7 +614,7 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
 
   @HostListener('window:beforeunload', ['$event'])
   onBeforeUnload(event: BeforeUnloadEvent): void {
-    if (!this.hasUnsavedChanges() || this.isReadOnly()) return;
+    if (!this.hasUnsavedChanges() || this.isViewer()) return;
     // Lo pendiente se envía con keepalive (sobrevive al cierre); si no se puede, se avisa
     const diagramId = this.currentDiagramId();
     this.flushPendingSync('update');
@@ -581,6 +633,10 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
     const tag = (target?.tagName || '').toLowerCase();
     const isTyping = ['input', 'textarea', 'select'].includes(tag) || !!target?.isContentEditable;
 
+    if (event.key === 'Escape' && this.proposalPreview()) {
+      this.exitProposalPreview();
+      return;
+    }
     if (event.key === 'Escape') {
       this.isHelpMenuOpen.set(false);
       this.setRelationTool(null);
@@ -671,7 +727,7 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
    * AUTOSAVE_MAX_WAIT_MS del primer cambio pendiente aunque se siga editando.
    */
   private scheduleAutosave(): void {
-    if (this.isReadOnly() || !this.currentDiagramId()) return;
+    if (this.isViewer() || !this.currentDiagramId()) return;
     const now = Date.now();
     if (!this.pendingSince) this.pendingSince = now;
     const wait = Math.min(AUTOSAVE_IDLE_MS, this.pendingSince + AUTOSAVE_MAX_WAIT_MS - now);
@@ -699,7 +755,7 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
    */
   private persist(auto: boolean): void {
     const diagramId = this.currentDiagramId();
-    if (this.isReadOnly() || !diagramId) return;
+    if (this.isViewer() || !diagramId) return;
     if (this.autosaveTimer) {
       clearTimeout(this.autosaveTimer);
       this.autosaveTimer = null;
@@ -751,7 +807,7 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
 
   private buildSavePayload(): SaveDiagramAstRequest {
     return {
-      nodes: this.nodes().map((n) => ({
+      nodes: this.canvasNodes().map((n) => ({
         id: n.id,
         name: n.isAnchor ? n.name || 'Anchor' : n.name,
         positionX: n.position.x,
@@ -763,7 +819,7 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
         attributes: n.attributes.filter((a) => a.name.trim()),
         methods: n.methods.filter((m) => m.name.trim()),
       })),
-      connections: this.connections().map((c) => ({
+      connections: this.canvasConnections().map((c) => ({
         id: c.id,
         sourceNodeId: this.baseId(c.sourceNodeId, c.sourceId),
         targetNodeId: this.baseId(c.targetNodeId, c.targetId),
@@ -823,7 +879,11 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
     if (this.syncTimer) clearTimeout(this.syncTimer);
     this.syncTimer = setTimeout(() => {
       this.syncTimer = null;
-      this.collaborationService.sendDiagramSync(this.nodes(), this.connections(), action);
+      this.collaborationService.sendDiagramSync(
+        this.canvasNodes(),
+        this.canvasConnections(),
+        action,
+      );
     }, delayMs);
   }
 
@@ -831,7 +891,11 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
     if (this.syncTimer) {
       clearTimeout(this.syncTimer);
       this.syncTimer = null;
-      this.collaborationService.sendDiagramSync(this.nodes(), this.connections(), action);
+      this.collaborationService.sendDiagramSync(
+        this.canvasNodes(),
+        this.canvasConnections(),
+        action,
+      );
     }
   }
 
@@ -1938,9 +2002,97 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
     connections: UmlConnection[];
     summary: string;
   }): void {
+    this.exitProposalPreview();
     if (event.nodes) {
       this.applyAiMutationWithAnimation(event.nodes, event.connections || [], true);
     }
+  }
+
+  // ======================================================================
+  // VISTA PREVIA DE PROPUESTAS DE TRAZO
+  // ======================================================================
+
+  /** Muestra en el lienzo cómo quedaría el diagrama con una propuesta (o sale si ya se ve). */
+  previewProposal(message: ChatMessage): void {
+    if (this.proposalPreview()?.message.id === message.id) {
+      this.exitProposalPreview();
+      return;
+    }
+    const diagramId = this.currentDiagramId();
+    if (!diagramId || message.diagramId !== diagramId || this.loadingPreviewId()) return;
+    this.exitProposalPreview();
+    // Lo pendiente se envía antes: la vista previa parte del diagrama de verdad
+    this.flushPendingSync('update');
+    this.flushAutosave();
+    this.closeClassPanel(false);
+    this.closeRelationPanel();
+    this.setRelationTool(null);
+
+    this.loadingPreviewId.set(message.id);
+    this.aiAssistantService
+      .previewProposal(message.id, {
+        activeDiagramId: diagramId,
+        currentNodes: this.nodes(),
+        currentConnections: this.connections(),
+      })
+      .subscribe({
+        next: (preview) => {
+          this.loadingPreviewId.set(null);
+          if (this.currentDiagramId() !== diagramId || this.proposalPreview()) return;
+          const nodes = this.applyAiNodesMutation(preview.nodes);
+          const proposed = {
+            nodes,
+            connections: this.sanitizeClientConnections(preview.connections || [], nodes),
+          };
+          const base = this.snapshot();
+          const diff = diffProposal(base, proposed);
+          this.proposalPreview.set({ message, diff, base, stale: false });
+          this.nodes.set(diff.nodes);
+          this.connections.set(diff.connections);
+          this.updateConnectionEndpoints();
+          // Que se vea todo lo que cambia, también las clases nuevas fuera de la vista
+          setTimeout(() => {
+            this.updateConnectionEndpoints();
+            this.fitView();
+          }, 100);
+        },
+        error: (err) => {
+          this.loadingPreviewId.set(null);
+          alert(err?.error?.error?.message || err?.error?.message || this.i18n.t('preview.error'));
+        },
+      });
+  }
+
+  /** Vuelve al diagrama de verdad (con lo que haya cambiado el equipo mientras tanto). */
+  exitProposalPreview(): void {
+    const preview = this.proposalPreview();
+    if (!preview) return;
+    this.proposalPreview.set(null);
+    this.nodes.set(preview.base.nodes);
+    this.connections.set(preview.base.connections);
+    this.updateConnectionEndpoints();
+    setTimeout(() => this.updateConnectionEndpoints(), 60);
+    this.resetHistory(true);
+    if (this.hasUnsavedChanges()) this.scheduleAutosave();
+  }
+
+  /** «Aplicar» desde la barra de la vista previa: lo mismo que el botón del chat. */
+  applyPreviewedProposal(): void {
+    const preview = this.proposalPreview();
+    if (!preview || this.isViewer()) return;
+    this.aiPanel?.applyProposal(preview.message);
+  }
+
+  previewNodeKind(nodeId: string): ChangeKind | undefined {
+    return this.proposalPreview()?.diff.nodeKinds.get(nodeId);
+  }
+
+  previewMemberKind(nodeId: string, kind: 'attr' | 'method', name: string): ChangeKind | undefined {
+    return this.proposalPreview()?.diff.memberKinds.get(memberKey(nodeId, kind, name));
+  }
+
+  previewConnectionKind(connId: string): ChangeKind | undefined {
+    return this.proposalPreview()?.diff.connectionKinds.get(connId);
   }
 
   /** Abre otro diagrama del proyecto (desde el enlace «#Diagrama» de un mensaje de Trazo). */
@@ -2232,6 +2384,7 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
 
   /** Ajusta el diagrama a la pantalla dejando libre la zona de las islas flotantes. */
   fitView(): void {
-    this.canvas?.fitToScreen({ x: 140, y: 120 });
+    // En la vista previa se deja sitio a la barra de la propuesta, bajo la barra superior
+    this.canvas?.fitToScreen({ x: 140, y: this.isPreviewing() ? 300 : 120 });
   }
 }

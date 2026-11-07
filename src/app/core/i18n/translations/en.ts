@@ -426,6 +426,16 @@ export const en = {
     teamPlaceholder: 'Message the team… @Trazo for the AI, #Diagram for the canvas',
     directPlaceholder: 'Private message to Trazo…',
   },
+  preview: {
+    title: 'Preview of Trazo’s proposal',
+    added: 'new',
+    changed: 'changes',
+    removed: 'removed',
+    stale: 'The diagram changed meanwhile: open the preview again to see it up to date.',
+    exit: 'Exit',
+    exitHint: 'Back to the diagram (Esc)',
+    error: 'Could not compute the preview.',
+  },
   trazoSettings: {
     title: 'Configure Trazo',
     open: 'Configure Trazo',
@@ -511,6 +521,8 @@ export const en = {
     applying: 'Applying…',
     appliedBy: 'Applied by',
     proposalViewer: 'A project editor can apply it.',
+    previewProposal: 'Preview',
+    exitPreview: 'Exit preview',
     changesApplied: 'Changes applied',
     needsClarification: 'I need one more detail',
     clarificationDefault:

@@ -96,6 +96,9 @@
                 [class.conn-highlighted]="
                   isConnectionSelected(conn.id) || editingConnId() === conn.id
                 "
+                [class.uml-preview-conn-added]="previewConnectionKind(conn.id) === 'added'"
+                [class.uml-preview-conn-removed]="previewConnectionKind(conn.id) === 'removed'"
+                [class.uml-preview-conn-changed]="previewConnectionKind(conn.id) === 'changed'"
               >
                 <!-- Marcadores Visuales según el tipo de Relación UML 2.5 -->
                 @if (conn.type === 'generalization' || conn.type === 'realization') {
@@ -257,6 +260,9 @@
                   'uml-node-relation-source': relationSourceId() === node.id,
                   'cursor-move': !node.isAnchor && !isReadOnly() && !isNodeLockedByOther(node.id),
                   'cursor-not-allowed': !node.isAnchor && isNodeLockedByOther(node.id),
+                  'uml-preview-added': previewNodeKind(node.id) === 'added',
+                  'uml-preview-removed': previewNodeKind(node.id) === 'removed',
+                  'uml-preview-changed': previewNodeKind(node.id) === 'changed',
                 }"
               >
                 <!-- Contenido Nodo Ancla (punto medio de la relación con clase de asociación) -->
@@ -364,7 +370,13 @@
                       [class.uml-class-compartment-empty]="!node.attributes.length"
                     >
                       @for (attr of node.attributes; track $index) {
-                        <div class="uml-class-row">
+                        <div
+                          class="uml-class-row"
+                          [ngClass]="
+                            'uml-preview-row-' +
+                            (previewMemberKind(node.id, 'attr', attr.name) || 'same')
+                          "
+                        >
                           <span>− {{ attr.name || '…' }}: {{ attr.type }}</span>
                         </div>
                       }
@@ -375,7 +387,13 @@
                       [class.uml-class-compartment-empty]="!node.methods.length"
                     >
                       @for (m of node.methods; track $index) {
-                        <div class="uml-class-row">
+                        <div
+                          class="uml-class-row"
+                          [ngClass]="
+                            'uml-preview-row-' +
+                            (previewMemberKind(node.id, 'method', m.name) || 'same')
+                          "
+                        >
                           <span
                             >+ {{ m.name || '…' }}({{ m.parameters || '' }}):
                             {{ m.returnType || 'void' }}</span
@@ -430,7 +448,7 @@
       [diagramId]="currentDiagramId()"
       [projectId]="currentProjectId()"
       [saveSuccessMessage]="saveSuccessMessage()"
-      [isReadOnly]="isReadOnly()"
+      [isReadOnly]="isViewer()"
       [saveState]="saveState()"
       (saveDiagram)="saveToBackend()"
       (exportBmp)="downloadBmpFile()"
@@ -443,6 +461,61 @@
       (openProfile)="openProfileModal()"
     >
     </app-diagram-appbar>
+
+    <!-- Vista previa de una propuesta de Trazo: cómo quedaría el diagrama, sin editar -->
+    @if (proposalPreview(); as preview) {
+      <div
+        class="island absolute top-[72px] left-1/2 z-40 flex max-w-[min(640px,calc(100%-32px))] -translate-x-1/2 items-center gap-3 py-2 pr-2 pl-3"
+        role="status"
+        data-proposal-banner
+      >
+        <ng-icon name="heroEye" class="shrink-0 text-base text-accent-fg"></ng-icon>
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-[13px] font-medium text-fg">
+            {{ 'preview.title' | translate }}
+            <span class="text-fg-muted">· {{ preview.message.changesSummary }}</span>
+          </p>
+          <p class="mt-0.5 flex flex-wrap items-center gap-x-2.5 text-[11.5px] text-fg-muted">
+            @if (preview.diff.counts.added) {
+              <span class="uml-preview-legend-added"
+                >+{{ preview.diff.counts.added }} {{ 'preview.added' | translate }}</span
+              >
+            }
+            @if (preview.diff.counts.changed) {
+              <span class="uml-preview-legend-changed"
+                >~{{ preview.diff.counts.changed }} {{ 'preview.changed' | translate }}</span
+              >
+            }
+            @if (preview.diff.counts.removed) {
+              <span class="uml-preview-legend-removed"
+                >−{{ preview.diff.counts.removed }} {{ 'preview.removed' | translate }}</span
+              >
+            }
+            @if (preview.stale) {
+              <span class="text-warning">{{ 'preview.stale' | translate }}</span>
+            }
+          </p>
+        </div>
+        @if (!isViewer()) {
+          <button
+            type="button"
+            (click)="applyPreviewedProposal()"
+            [disabled]="aiPanel?.applyingIds()?.has(preview.message.id)"
+            class="btn btn-primary btn-sm shrink-0"
+          >
+            {{ 'ai.applyProposal' | translate }}
+          </button>
+        }
+        <button
+          type="button"
+          (click)="exitProposalPreview()"
+          [title]="'preview.exitHint' | translate"
+          class="btn btn-ghost btn-sm shrink-0"
+        >
+          {{ 'preview.exit' | translate }}
+        </button>
+      </div>
+    }
 
     <!-- 3. BARRA VERTICAL DE HERRAMIENTAS (izquierda) -->
     <app-diagram-toolbox
@@ -557,14 +630,17 @@
     [diagrams]="projectDiagrams()"
     [members]="projectMembers()"
     [isAdmin]="currentUserRole() === 'OWNER'"
-    [currentNodes]="nodes()"
-    [currentConnections]="connections()"
-    [canEdit]="!isReadOnly()"
+    [currentNodes]="canvasNodes()"
+    [currentConnections]="canvasConnections()"
+    [canEdit]="!isViewer()"
+    [previewingId]="proposalPreview()?.message?.id ?? null"
+    [loadingPreviewId]="loadingPreviewId()"
     [dock]="aiDock()"
     (dockChange)="setAiDock($event)"
     (closePanel)="isAiPanelOpen.set(false)"
     (applyMutation)="onAiMutation($event)"
     (openDiagram)="openDiagramFromChat($event)"
+    (previewProposal)="previewProposal($event)"
   >
   </app-ai-assistant-panel>
 
