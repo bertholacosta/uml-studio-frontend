@@ -386,6 +386,24 @@
                             </div>
                           </div>
                         }
+                        <!-- Revisión del cambio de Trazo en el lienzo -->
+                        @if (msg.review; as review) {
+                          <p
+                            class="trazo-review-state"
+                            [class.is-pending]="review.state === 'pending'"
+                            [class.is-reverted]="review.state === 'reverted'"
+                          >
+                            @if (review.state === 'pending') {
+                              {{ 'review.pending' | translate }}
+                            } @else if (review.state === 'reverted') {
+                              {{ 'review.revertedBy' | translate }} {{ review.by?.userName }}
+                            } @else if (review.by) {
+                              {{ 'review.acceptedBy' | translate }} {{ review.by.userName }}
+                            } @else {
+                              {{ 'review.acceptedAuto' | translate }}
+                            }
+                          </p>
+                        }
                       }
                     </div>
                   </div>
@@ -432,6 +450,22 @@
                         </ul>
                       </div>
                     }
+                    <!-- Avance: leer → escribir → preparar/aplicar los cambios -->
+                    <div
+                      class="trazo-steps"
+                      role="progressbar"
+                      aria-valuemin="1"
+                      aria-valuemax="3"
+                      [attr.aria-valuenow]="draftStep()"
+                    >
+                      @for (step of [1, 2, 3]; track step) {
+                        <span
+                          class="trazo-step"
+                          [class.is-done]="step < draftStep()"
+                          [class.is-current]="step === draftStep()"
+                        ></span>
+                      }
+                    </div>
                     <p class="flex items-center gap-2 text-[12px] text-fg-subtle">
                       <span class="flex gap-1">
                         <span
@@ -442,7 +476,11 @@
                         ></span>
                         <span class="h-1 w-1 animate-bounce rounded-full bg-accent-fg"></span>
                       </span>
-                      <span>{{ 'ai.phase.' + draft.phase | translate }}</span>
+                      <span
+                        >{{ 'ai.step' | translate }} {{ draftStep() }}/3 ·
+                        {{ 'ai.phase.' + draft.phase | translate }}</span
+                      >
+                      <span class="tabular-nums">· {{ draftSeconds() }} s</span>
                       @if (draft.phase === 'reading' && isSlowReply()) {
                         <span>· {{ 'ai.wakingUp' | translate }}</span>
                       }

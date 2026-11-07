@@ -31,6 +31,7 @@ import {
   heroCheck,
   heroLockClosed,
   heroEye,
+  heroSparkles,
   heroPencilSquare,
   heroMinus,
   heroPlus,
@@ -136,6 +137,7 @@ const AUTOSAVE_RETRY_MS = { first: 2000, max: 30000 };
       heroCheck,
       heroLockClosed,
       heroEye,
+      heroSparkles,
       heroPencilSquare,
       heroMinus,
       heroPlus,
@@ -222,6 +224,57 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
     () => this.proposalPreview()?.base.connections ?? this.connections(),
   );
   @ViewChild(AiAssistantPanelComponent) aiPanel?: AiAssistantPanelComponent;
+
+  /**
+   * Último cambio de Trazo pendiente de revisión en este diagrama: lo que hizo queda resaltado
+   * en el lienzo (nuevo en verde, cambiado en ámbar) hasta que alguien lo acepte o lo deshaga.
+   */
+  readonly trazoReview = signal<ChatMessage | null>(null);
+  readonly reviewBusy = signal<'accept' | 'revert' | null>(null);
+  /** Cambios cuya barra se ocultó en este navegador (el resaltado también se quita). */
+  private readonly dismissedReviews = signal<Set<string>>(new Set());
+  readonly reviewDiff = computed(() => {
+    const review = this.trazoReview();
+    if (!review?.review?.before || !review.review.after) return null;
+    if (this.dismissedReviews().has(review.id)) return null;
+    const normalize = (state: { nodes: UmlClassNode[]; connections: UmlConnection[] }) => {
+      const nodes = this.applyAiNodesMutation(state.nodes || []);
+      return { nodes, connections: this.sanitizeClientConnections(state.connections || [], nodes) };
+    };
+    return diffProposal(normalize(review.review.before), normalize(review.review.after));
+  });
+  /** Lo que quitó Trazo (no está en el lienzo): se nombra en la barra. */
+  readonly reviewRemoved = computed(() => {
+    const review = this.trazoReview();
+    const diff = this.reviewDiff();
+    if (!review?.review?.before || !diff) return [];
+    const before = review.review.before;
+    const nameOf = (id: string) => before.nodes.find((n) => n.id === id)?.name || '?';
+    const removed: string[] = [];
+    for (const [id, kind] of diff.nodeKinds) if (kind === 'removed') removed.push(nameOf(id));
+    for (const [key, kind] of diff.memberKinds) {
+      if (kind !== 'removed') continue;
+      const [nodeId, , name] = key.split(':');
+      const node = before.nodes.find((n) => n.id === nodeId);
+      const member =
+        node?.attributes.find((a) => a.name.toLowerCase() === name)?.name ||
+        node?.methods.find((m) => m.name.toLowerCase() === name)?.name ||
+        name;
+      removed.push(`${node?.name || '?'}.${member}`);
+    }
+    for (const [id, kind] of diff.connectionKinds) {
+      if (kind !== 'removed') continue;
+      const conn = before.connections.find((c) => c.id === id);
+      if (conn) {
+        removed.push(
+          `${nameOf(this.baseId(conn.sourceNodeId, conn.sourceId))} — ${nameOf(this.baseId(conn.targetNodeId, conn.targetId))}`,
+        );
+      }
+    }
+    return removed;
+  });
+  /** Resaltado del lienzo: la vista previa de una propuesta o el último cambio de Trazo. */
+  readonly canvasMarks = computed(() => this.proposalPreview()?.diff ?? this.reviewDiff());
 
   // Lienzo: cuadrícula, transformación y selección
   readonly gridSize = 20;
@@ -2084,15 +2137,71 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
   }
 
   previewNodeKind(nodeId: string): ChangeKind | undefined {
-    return this.proposalPreview()?.diff.nodeKinds.get(nodeId);
+    return this.canvasMarks()?.nodeKinds.get(nodeId);
   }
 
   previewMemberKind(nodeId: string, kind: 'attr' | 'method', name: string): ChangeKind | undefined {
-    return this.proposalPreview()?.diff.memberKinds.get(memberKey(nodeId, kind, name));
+    return this.canvasMarks()?.memberKinds.get(memberKey(nodeId, kind, name));
   }
 
   previewConnectionKind(connId: string): ChangeKind | undefined {
-    return this.proposalPreview()?.diff.connectionKinds.get(connId);
+    return this.canvasMarks()?.connectionKinds.get(connId);
+  }
+
+  // ======================================================================
+  // REVISIÓN DE LOS CAMBIOS DE TRAZO
+  // ======================================================================
+
+  onPendingReview(message: ChatMessage | null): void {
+    this.trazoReview.set(message);
+  }
+
+  /** Acepta todo lo que hizo Trazo: se queda y deja de resaltarse para todos. */
+  acceptTrazoChange(): void {
+    const review = this.trazoReview();
+    if (!review || this.isViewer() || this.reviewBusy()) return;
+    this.reviewBusy.set('accept');
+    this.aiAssistantService.reviewChange(review.id, 'accept').subscribe({
+      next: (res) => {
+        this.reviewBusy.set(null);
+        if (res.assistantMessage) this.aiPanel?.receiveMessage(res.assistantMessage);
+      },
+      error: (err) => this.reviewFailed(err),
+    });
+  }
+
+  /** Deshace todo lo que hizo Trazo, sin perder lo que el equipo cambió después. */
+  revertTrazoChange(): void {
+    const review = this.trazoReview();
+    const diagramId = this.currentDiagramId();
+    if (!review || !diagramId || this.isViewer() || this.reviewBusy()) return;
+    this.flushPendingSync('update');
+    this.reviewBusy.set('revert');
+    this.aiAssistantService
+      .reviewChange(review.id, 'revert', {
+        activeDiagramId: diagramId,
+        currentNodes: this.canvasNodes(),
+        currentConnections: this.canvasConnections(),
+      })
+      .subscribe({
+        next: (res) => {
+          this.reviewBusy.set(null);
+          if (res.assistantMessage) this.aiPanel?.receiveMessage(res.assistantMessage);
+          this.applyAiMutationWithAnimation(res.nodes, res.connections || [], true);
+        },
+        error: (err) => this.reviewFailed(err),
+      });
+  }
+
+  /** Oculta la barra y el resaltado solo en este navegador (sin decidir nada). */
+  dismissTrazoReview(): void {
+    const review = this.trazoReview();
+    if (review) this.dismissedReviews.update((s) => new Set(s).add(review.id));
+  }
+
+  private reviewFailed(err: any): void {
+    this.reviewBusy.set(null);
+    alert(err?.error?.error?.message || err?.error?.message || this.i18n.t('review.error'));
   }
 
   /** Abre otro diagrama del proyecto (desde el enlace «#Diagrama» de un mensaje de Trazo). */
@@ -2108,11 +2217,18 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
     targetConns: UmlConnection[],
     persisted = false,
   ): void {
+    const cleanNodes = this.applyAiNodesMutation(targetNodes);
+    const cleanConns = this.sanitizeClientConnections(targetConns, cleanNodes);
+    // El mismo cambio suele llegar dos veces (respuesta HTTP y aviso del socket): si el lienzo
+    // ya está así, no se vuelve a pintar
+    if (
+      this.canvasKey(cleanNodes, cleanConns) === this.canvasKey(this.nodes(), this.connections())
+    ) {
+      return;
+    }
     this.closeClassPanel(false);
     this.closeRelationPanel();
-    const cleanNodes = this.applyAiNodesMutation(targetNodes);
     this.nodes.set(cleanNodes);
-    const cleanConns = this.sanitizeClientConnections(targetConns, cleanNodes);
     this.connections.set(cleanConns);
     if (!persisted) this.markAsUnsaved();
     else if (this.saveInFlight) {
@@ -2127,10 +2243,31 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
       this.saveState.set('saved');
     }
     this.updateConnectionEndpoints();
-    setTimeout(() => {
+    // Un solo encuadre al final: dos seguidos dejan las relaciones dibujadas a otra escala
+    if (this.aiFitTimer) clearTimeout(this.aiFitTimer);
+    this.aiFitTimer = setTimeout(() => {
+      this.aiFitTimer = null;
       this.updateConnectionEndpoints();
       this.fitView();
-    }, 100);
+    }, 150);
+  }
+
+  private aiFitTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Lo que importa del lienzo para saber si un cambio de Trazo ya está aplicado. */
+  private canvasKey(nodes: UmlClassNode[], connections: UmlConnection[]): string {
+    return JSON.stringify([
+      nodes.map((n) => [n.id, n.name, n.position.x, n.position.y, n.attributes, n.methods]),
+      connections.map((c) => [
+        c.id,
+        this.baseId(c.sourceNodeId, c.sourceId),
+        this.baseId(c.targetNodeId, c.targetId),
+        c.type,
+        c.name || '',
+        c.sourceMultiplicity || '',
+        c.targetMultiplicity || '',
+      ]),
+    ]);
   }
 
   private applyAiNodesMutation(targetNodes: any[]): UmlClassNode[] {

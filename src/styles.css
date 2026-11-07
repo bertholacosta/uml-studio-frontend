@@ -1323,11 +1323,15 @@ f-flow f-connection.f-selected .f-connection-path {
 
 f-flow .f-node.uml-class-node.uml-preview-added {
   border-color: var(--uml-added) !important;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--uml-added) 30%, transparent) !important;
+  box-shadow:
+    0 0 0 2px var(--uml-added),
+    0 0 0 6px color-mix(in srgb, var(--uml-added) 22%, transparent) !important;
 }
 f-flow .f-node.uml-class-node.uml-preview-changed {
   border-color: var(--uml-changed) !important;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--uml-changed) 25%, transparent) !important;
+  box-shadow:
+    0 0 0 2px var(--uml-changed),
+    0 0 0 6px color-mix(in srgb, var(--uml-changed) 22%, transparent) !important;
 }
 f-flow .f-node.uml-class-node.uml-preview-removed {
   border: 1px dashed var(--uml-removed) !important;
@@ -1403,6 +1407,54 @@ f-flow f-connection.uml-preview-conn-removed .f-connection-path {
 @media (prefers-reduced-motion: reduce) {
   .trazo-caret,
   .trazo-draft-action {
+    animation: none;
+  }
+}
+
+/* Avance de Trazo: tres pasos (leer, escribir, preparar o aplicar los cambios) */
+.trazo-steps {
+  display: flex;
+  gap: 4px;
+  max-width: 180px;
+}
+.trazo-step {
+  height: 3px;
+  flex: 1;
+  border-radius: 2px;
+  background: var(--color-line, rgb(255 255 255 / 0.12));
+  transition: background-color 0.3s ease;
+}
+.trazo-step.is-done {
+  background: var(--color-accent-fg, #ff8148);
+}
+.trazo-step.is-current {
+  background: linear-gradient(90deg, var(--color-accent-fg, #ff8148) 40%, transparent);
+  background-size: 200% 100%;
+  animation: trazo-step-run 1.2s linear infinite;
+}
+@keyframes trazo-step-run {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+/* Estado de la revisión de un cambio de Trazo, bajo su mensaje */
+.trazo-review-state {
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--color-fg-subtle, #8a8a8a);
+}
+.trazo-review-state.is-pending {
+  color: var(--color-warning);
+}
+.trazo-review-state.is-reverted {
+  color: var(--color-danger);
+}
+@media (prefers-reduced-motion: reduce) {
+  .trazo-step.is-current {
     animation: none;
   }
 }

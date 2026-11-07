@@ -36,6 +36,15 @@ export interface ChatMessage {
   changesSummary?: string;
   operationsCount?: number;
   proposal?: { state: 'pending' | 'applied'; appliedBy?: ChatAuthor; appliedAt?: string };
+  /** Cambio de Trazo en el lienzo: resaltado mientras está pendiente; se acepta o se deshace. */
+  review?: {
+    state: 'pending' | 'accepted' | 'reverted';
+    by?: ChatAuthor;
+    at?: string;
+    /** Diagrama antes y después del cambio (solo mientras está pendiente). */
+    before?: { nodes: UmlClassNode[]; connections: UmlConnection[] };
+    after?: { nodes: UmlClassNode[]; connections: UmlConnection[] };
+  };
   image?: string;
   model?: string;
   latencyMs?: number;
@@ -201,6 +210,20 @@ export class AiAssistantService {
     return this.http
       .post<any>(`${this.apiUrl}/chat/messages/${messageId}/preview`, openDiagram)
       .pipe(map((res) => (res && res.data ? res.data : res) as ProposalPreview));
+  }
+
+  /**
+   * Acepta o deshace todo lo que Trazo cambió en un mensaje. Para deshacer se envía el diagrama
+   * abierto: se revierte solo lo de Trazo, sin perder lo que el equipo cambió después.
+   */
+  reviewChange(
+    messageId: string,
+    decision: 'accept' | 'revert',
+    openDiagram: OpenDiagram = {},
+  ): Observable<AiResponse> {
+    return this.http
+      .post<any>(`${this.apiUrl}/chat/messages/${messageId}/review`, { decision, ...openDiagram })
+      .pipe(map((res) => (res && res.data ? res.data : res) as AiResponse));
   }
 
   /** Aplica a su diagrama los cambios que Trazo propuso en un mensaje. */

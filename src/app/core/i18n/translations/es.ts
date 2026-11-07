@@ -428,6 +428,18 @@ export const es = {
     teamPlaceholder: 'Mensaje al equipo… @Trazo para la IA, #Diagrama para el lienzo',
     directPlaceholder: 'Mensaje privado para Trazo…',
   },
+  review: {
+    title: 'Cambios de Trazo',
+    removed: 'quitó',
+    accept: 'Aceptar',
+    revert: 'Deshacer',
+    dismiss: 'Ocultar el resaltado (solo en este navegador)',
+    pending: 'Resaltado en el lienzo: falta aceptarlo o deshacerlo',
+    acceptedBy: 'Aceptado por',
+    acceptedAuto: 'Aceptado (Trazo hizo otro cambio después)',
+    revertedBy: 'Deshecho por',
+    error: 'No se pudo completar la acción.',
+  },
   preview: {
     title: 'Vista previa de la propuesta de Trazo',
     added: 'nuevo',
@@ -527,6 +539,7 @@ export const es = {
     appliedBy: 'Aplicada por',
     proposalViewer: 'Un editor del proyecto puede aplicarla.',
     previewProposal: 'Vista previa',
+    step: 'Paso',
     phase: {
       reading: 'Leyendo la conversación y el diagrama…',
       writing: 'Escribiendo…',

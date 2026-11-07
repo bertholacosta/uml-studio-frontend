@@ -426,6 +426,18 @@ export const en = {
     teamPlaceholder: 'Message the team… @Trazo for the AI, #Diagram for the canvas',
     directPlaceholder: 'Private message to Trazo…',
   },
+  review: {
+    title: 'Trazo’s changes',
+    removed: 'removed',
+    accept: 'Accept',
+    revert: 'Undo',
+    dismiss: 'Hide the highlight (this browser only)',
+    pending: 'Highlighted on the canvas: accept or undo it',
+    acceptedBy: 'Accepted by',
+    acceptedAuto: 'Accepted (Trazo made another change afterwards)',
+    revertedBy: 'Undone by',
+    error: 'Could not complete the action.',
+  },
   preview: {
     title: 'Preview of Trazo’s proposal',
     added: 'new',
@@ -522,6 +534,7 @@ export const en = {
     appliedBy: 'Applied by',
     proposalViewer: 'A project editor can apply it.',
     previewProposal: 'Preview',
+    step: 'Step',
     phase: {
       reading: 'Reading the conversation and the diagram…',
       writing: 'Writing…',

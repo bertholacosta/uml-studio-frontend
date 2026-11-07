@@ -462,6 +462,75 @@
     >
     </app-diagram-appbar>
 
+    <!-- Cambios de Trazo resaltados en el lienzo: aceptarlos o deshacerlos -->
+    @if (!proposalPreview() && trazoReview(); as review) {
+      @if (reviewDiff(); as diff) {
+        <div
+          class="island absolute top-[72px] left-1/2 z-40 flex max-w-[min(680px,calc(100%-32px))] -translate-x-1/2 items-center gap-3 py-2 pr-2 pl-3"
+          role="status"
+          data-review-banner
+        >
+          <ng-icon name="heroSparkles" class="shrink-0 text-base text-accent-fg"></ng-icon>
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-[13px] font-medium text-fg">
+              {{ 'review.title' | translate }}
+              @if (review.changesSummary) {
+                <span class="text-fg-muted">· {{ review.changesSummary }}</span>
+              }
+            </p>
+            <p class="mt-0.5 flex flex-wrap items-center gap-x-2.5 text-[11.5px] text-fg-muted">
+              @if (diff.counts.added) {
+                <span class="uml-preview-legend-added"
+                  >+{{ diff.counts.added }} {{ 'preview.added' | translate }}</span
+                >
+              }
+              @if (diff.counts.changed) {
+                <span class="uml-preview-legend-changed"
+                  >~{{ diff.counts.changed }} {{ 'preview.changed' | translate }}</span
+                >
+              }
+              @if (reviewRemoved().length) {
+                <span
+                  class="uml-preview-legend-removed truncate"
+                  [title]="reviewRemoved().join(', ')"
+                  >−{{ 'review.removed' | translate }} {{ reviewRemoved().join(', ') }}</span
+                >
+              }
+            </p>
+          </div>
+          @if (!isViewer()) {
+            <button
+              type="button"
+              (click)="acceptTrazoChange()"
+              [disabled]="reviewBusy() !== null"
+              class="btn btn-primary btn-sm shrink-0"
+            >
+              {{ 'review.accept' | translate }}
+            </button>
+            <button
+              type="button"
+              (click)="revertTrazoChange()"
+              [disabled]="reviewBusy() !== null"
+              class="btn btn-outline btn-sm shrink-0"
+            >
+              @if (reviewBusy() === 'revert') {
+                <span class="spinner !h-3.5 !w-3.5"></span>
+              }
+              {{ 'review.revert' | translate }}
+            </button>
+          }
+          <button
+            type="button"
+            (click)="dismissTrazoReview()"
+            [title]="'review.dismiss' | translate"
+            class="btn btn-ghost btn-sm btn-icon shrink-0"
+          >
+            <ng-icon name="heroXMark" class="text-base"></ng-icon>
+          </button>
+        </div>
+      }
+    }
+
     <!-- Vista previa de una propuesta de Trazo: cómo quedaría el diagrama, sin editar -->
     @if (proposalPreview(); as preview) {
       <div
@@ -641,6 +710,7 @@
     (applyMutation)="onAiMutation($event)"
     (openDiagram)="openDiagramFromChat($event)"
     (previewProposal)="previewProposal($event)"
+    (pendingReview)="onPendingReview($event)"
   >
   </app-ai-assistant-panel>
 

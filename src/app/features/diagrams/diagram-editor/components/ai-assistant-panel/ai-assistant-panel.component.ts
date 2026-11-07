@@ -167,6 +167,8 @@ export class AiAssistantPanelComponent implements OnDestroy {
   readonly openDiagram = output<string>();
   /** Ver en el lienzo cómo quedaría una propuesta (o salir de la vista previa). */
   readonly previewProposal = output<ChatMessage>();
+  /** Último cambio de Trazo pendiente de revisión en el diagrama abierto (o null). */
+  readonly pendingReview = output<ChatMessage | null>();
 
   // Barra inferior: menú «+» y tarjeta de conversación plegable
   readonly isPlusMenuOpen = signal<boolean>(false);
@@ -197,6 +199,32 @@ export class AiAssistantPanelComponent implements OnDestroy {
   /** Respuesta que Trazo está escribiendo en cada conversación (en vivo). */
   readonly drafts = signal<Record<ChatChannel, TrazoDraft | null>>(emptyByChannel(() => null));
   readonly activeDraft = computed(() => this.drafts()[this.activeChannel()]);
+  /** Cuándo empezó cada borrador (para mostrar el tiempo que lleva Trazo). */
+  private readonly draftStartedAt = new Map<string, number>();
+  readonly now = signal(Date.now());
+  private clock: ReturnType<typeof setInterval> | null = null;
+  readonly draftSeconds = computed(() => {
+    const draft = this.activeDraft();
+    const started = draft && this.draftStartedAt.get(draft.replyTo);
+    return started ? Math.max(0, Math.round((this.now() - started) / 1000)) : 0;
+  });
+  /** Pasos del avance: leer, escribir y preparar o aplicar los cambios. */
+  readonly draftStep = computed(() => {
+    const phase = this.activeDraft()?.phase;
+    return phase === 'reading' ? 1 : phase === 'writing' ? 2 : 3;
+  });
+  /** Cambio de Trazo más reciente aún pendiente de revisión en el diagrama abierto. */
+  readonly latestPendingReview = computed(() => {
+    const diagramId = this.diagramId();
+    if (!diagramId) return null;
+    const all = [...this.messagesByChannel().team, ...this.messagesByChannel().direct];
+    return (
+      all
+        .filter((m) => m.review?.state === 'pending' && m.diagramId === diagramId)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+        .at(-1) ?? null
+    );
+  });
 
   // «Configurar Trazo»: configuración del proyecto, compartida por el equipo
   readonly trazoSettings = signal<TrazoSettings | null>(null);
@@ -259,8 +287,29 @@ export class AiAssistantPanelComponent implements OnDestroy {
         (m) => m.role === 'assistant' && m.replyTo === draft.replyTo,
       );
       if (answered) return;
+      if (!this.draftStartedAt.has(draft.replyTo)) {
+        this.draftStartedAt.set(draft.replyTo, Date.now());
+        this.now.set(Date.now());
+      }
       this.drafts.update((d) => ({ ...d, [draft.channel]: draft }));
       if (draft.channel === this.activeChannel()) this.scrollToBottom();
+    });
+    // El editor resalta en el lienzo el último cambio de Trazo pendiente de revisión
+    effect(() => {
+      const review = this.latestPendingReview();
+      untracked(() => this.pendingReview.emit(review));
+    });
+    // Reloj del avance mientras Trazo responde
+    effect(() => {
+      const busy = this.drafts().team !== null || this.drafts().direct !== null;
+      untracked(() => {
+        if (busy && !this.clock) {
+          this.clock = setInterval(() => this.now.set(Date.now()), 1000);
+        } else if (!busy && this.clock) {
+          clearInterval(this.clock);
+          this.clock = null;
+        }
+      });
     });
     // Cuando Trazo queda libre no queda ningún borrador a medias
     effect(() => {
@@ -324,6 +373,12 @@ export class AiAssistantPanelComponent implements OnDestroy {
     this.stopWebcam();
     if (this.slowTimer) clearTimeout(this.slowTimer);
     if (this.replyTimeout) clearTimeout(this.replyTimeout);
+    if (this.clock) clearInterval(this.clock);
+  }
+
+  /** Mensaje actualizado por una acción del editor (p. ej. aceptar o deshacer un cambio). */
+  receiveMessage(message: ChatMessage): void {
+    this.upsertMessage(message);
   }
 
   get myUserId(): string | undefined {
