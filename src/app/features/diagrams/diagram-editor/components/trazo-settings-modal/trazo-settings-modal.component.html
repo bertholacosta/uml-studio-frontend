@@ -1,0 +1,160 @@
+<div class="modal-backdrop" (click)="closed.emit()" (keydown.escape)="closed.emit()">
+  <div
+    class="modal max-w-[520px]"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="trazo-settings-title"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="modal-header">
+      <div>
+        <h2 id="trazo-settings-title" class="text-base font-semibold text-fg">
+          {{ 'trazoSettings.title' | translate }}
+        </h2>
+        <p class="mt-1 text-[13px] leading-relaxed text-fg-muted">
+          {{ 'trazoSettings.subtitle' | translate }}
+        </p>
+      </div>
+      <button
+        type="button"
+        (click)="closed.emit()"
+        [title]="'common.close' | translate"
+        class="btn btn-ghost btn-icon shrink-0"
+      >
+        <ng-icon name="heroXMark" class="text-base"></ng-icon>
+      </button>
+    </div>
+
+    <div class="space-y-6 overflow-y-auto px-6 py-5">
+      <!-- Cómo entrega los cambios -->
+      <fieldset [disabled]="!canEdit()">
+        <legend class="label">{{ 'trazoSettings.delivery' | translate }}</legend>
+        <div class="space-y-2" role="radiogroup">
+          @for (option of deliveries; track option.id) {
+            <button
+              type="button"
+              role="radio"
+              [attr.aria-checked]="draft().delivery === option.id"
+              (click)="set('delivery', option.id)"
+              class="flex w-full items-start gap-3 rounded-sm border px-3 py-2.5 text-left transition-colors disabled:cursor-default"
+              [ngClass]="
+                draft().delivery === option.id
+                  ? 'border-accent bg-accent-soft'
+                  : 'border-line hover:border-line-strong'
+              "
+            >
+              <ng-icon
+                [name]="option.icon"
+                class="mt-0.5 shrink-0 text-base"
+                [ngClass]="draft().delivery === option.id ? 'text-accent-fg' : 'text-fg-subtle'"
+              ></ng-icon>
+              <span class="min-w-0 flex-1">
+                <span class="block text-sm font-medium text-fg">{{
+                  'trazoSettings.deliveries.' + option.id + '.title' | translate
+                }}</span>
+                <span class="mt-0.5 block text-xs leading-relaxed text-fg-muted">{{
+                  'trazoSettings.deliveries.' + option.id + '.body' | translate
+                }}</span>
+              </span>
+              @if (draft().delivery === option.id) {
+                <ng-icon
+                  name="heroCheck"
+                  class="mt-0.5 shrink-0 text-base text-accent-fg"
+                ></ng-icon>
+              }
+            </button>
+          }
+        </div>
+      </fieldset>
+
+      <!-- Estilo -->
+      <fieldset [disabled]="!canEdit()">
+        <legend class="label">{{ 'trazoSettings.style' | translate }}</legend>
+        <div class="segmented">
+          @for (style of styles; track style) {
+            <button
+              type="button"
+              (click)="set('style', style)"
+              [attr.aria-pressed]="draft().style === style"
+              class="segmented-item disabled:cursor-default"
+              [ngClass]="draft().style === style ? 'segmented-item-active' : ''"
+            >
+              {{ 'trazoSettings.styles.' + style + '.title' | translate }}
+            </button>
+          }
+        </div>
+        <p class="mt-2 text-xs text-fg-muted">
+          {{ 'trazoSettings.styles.' + draft().style + '.body' | translate }}
+        </p>
+      </fieldset>
+
+      <!-- Modelo: creatividad y modelo del servidor -->
+      <fieldset [disabled]="!canEdit()">
+        <legend class="label">{{ 'trazoSettings.creativity' | translate }}</legend>
+        <div class="segmented">
+          @for (creativity of creativities; track creativity) {
+            <button
+              type="button"
+              (click)="set('creativity', creativity)"
+              [attr.aria-pressed]="draft().creativity === creativity"
+              class="segmented-item disabled:cursor-default"
+              [ngClass]="draft().creativity === creativity ? 'segmented-item-active' : ''"
+            >
+              {{ 'trazoSettings.creativities.' + creativity + '.title' | translate }}
+            </button>
+          }
+        </div>
+        <p class="mt-2 text-xs text-fg-muted">
+          {{ 'trazoSettings.creativities.' + draft().creativity + '.body' | translate }}
+        </p>
+
+        <label class="label mt-5" for="trazo-model">{{ 'trazoSettings.model' | translate }}</label>
+        <select
+          id="trazo-model"
+          class="input input-sm"
+          [ngModel]="draft().model"
+          (ngModelChange)="set('model', $event)"
+        >
+          @for (model of settings().models; track model; let first = $first) {
+            <option [value]="model">
+              {{ model }}{{ first ? ' · ' + ('trazoSettings.defaultModel' | translate) : '' }}
+            </option>
+          }
+        </select>
+        <p class="mt-2 text-xs text-fg-muted">{{ 'trazoSettings.modelHint' | translate }}</p>
+      </fieldset>
+
+      @if (error()) {
+        <div class="alert alert-error" role="alert">{{ error() }}</div>
+      }
+    </div>
+
+    <div class="modal-footer !justify-between">
+      <p class="min-w-0 text-xs text-fg-subtle">
+        @if (!canEdit()) {
+          {{ 'trazoSettings.readOnly' | translate }}
+        } @else if (settings().updatedBy) {
+          {{ 'trazoSettings.lastChange' | translate }} {{ settings().updatedBy!.userName }}
+        }
+      </p>
+      <div class="flex shrink-0 gap-2">
+        <button type="button" (click)="closed.emit()" class="btn btn-ghost btn-sm">
+          {{ (canEdit() ? 'common.cancel' : 'common.close') | translate }}
+        </button>
+        @if (canEdit()) {
+          <button
+            type="button"
+            (click)="submit()"
+            [disabled]="!isDirty() || isSaving()"
+            class="btn btn-primary btn-sm"
+          >
+            @if (isSaving()) {
+              <span class="spinner !h-3.5 !w-3.5"></span>
+            }
+            {{ 'trazoSettings.save' | translate }}
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+</div>

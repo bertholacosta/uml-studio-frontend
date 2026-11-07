@@ -86,6 +86,29 @@ export interface SendChatMessage extends OpenDiagram {
   clientId?: string;
 }
 
+/** apply: aplica los cambios pedidos; propose: siempre propone; explain: solo explica. */
+export type TrazoDelivery = 'apply' | 'propose' | 'explain';
+export type TrazoStyle = 'brief' | 'mentor';
+export type TrazoCreativity = 'precise' | 'balanced' | 'creative';
+
+/** Lo que se elige en «Configurar Trazo». */
+export interface TrazoSettingsValues {
+  delivery: TrazoDelivery;
+  style: TrazoStyle;
+  creativity: TrazoCreativity;
+  model: string;
+}
+
+/** Configuración de Trazo del proyecto (compartida por todo el equipo). */
+export interface TrazoSettings extends TrazoSettingsValues {
+  /** Modelos que ofrece el servidor; el primero es el predeterminado. */
+  models: string[];
+  /** Si quien la consulta puede cambiarla (no llega en el evento del socket). */
+  canEdit?: boolean;
+  updatedBy?: ChatAuthor;
+  updatedAt?: string;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -128,6 +151,19 @@ export class AiAssistantService {
     return this.http
       .post<any>(`${this.apiUrl}/ai/vision-diagram`, { imageBase64, mimeType, prompt, ...context })
       .pipe(map((res) => (res && res.data ? res.data : res) as ChatAccepted));
+  }
+
+  getTrazoSettings(projectId: string): Observable<TrazoSettings> {
+    return this.http
+      .get<any>(`${this.apiUrl}/projects/${projectId}/trazo-settings`)
+      .pipe(map((res) => (res && res.data ? res.data : res) as TrazoSettings));
+  }
+
+  /** Cambia cómo trabaja Trazo en el proyecto; Trazo lo anuncia en el canal del equipo. */
+  updateTrazoSettings(projectId: string, values: TrazoSettingsValues): Observable<TrazoSettings> {
+    return this.http
+      .put<any>(`${this.apiUrl}/projects/${projectId}/trazo-settings`, values)
+      .pipe(map((res) => (res && res.data ? res.data : res) as TrazoSettings));
   }
 
   /** Aplica a su diagrama los cambios que Trazo propuso en un mensaje. */

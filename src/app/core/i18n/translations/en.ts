@@ -426,6 +426,57 @@ export const en = {
     teamPlaceholder: 'Message the team… @Trazo for the AI, #Diagram for the canvas',
     directPlaceholder: 'Private message to Trazo…',
   },
+  trazoSettings: {
+    title: 'Configure Trazo',
+    open: 'Configure Trazo',
+    subtitle:
+      'Trazo only acts when someone talks to it. This changes how it answers the whole team in this project.',
+    delivery: 'When asked for changes',
+    deliveries: {
+      apply: {
+        title: 'Applies the changes',
+        body: 'Edits the diagram right away when someone who can edit asks.',
+        chip: 'Applies',
+      },
+      propose: {
+        title: 'Always proposes',
+        body: 'Leaves the changes as a proposal in the chat; the team reviews them and clicks «Apply».',
+        chip: 'Proposes',
+      },
+      explain: {
+        title: 'Only explains',
+        body: 'Teaching mode: explains how and why, without touching the diagram.',
+        chip: 'Only explains',
+      },
+    },
+    style: 'Style',
+    styles: {
+      brief: { title: 'Brief and direct', body: 'One to three sentences, no theory unless asked.' },
+      mentor: {
+        title: 'Mentor',
+        body: 'Explains why with examples from the diagram and asks questions to make the team think.',
+      },
+    },
+    creativity: 'Model creativity',
+    creativities: {
+      precise: {
+        title: 'Precise',
+        body: 'Temperature 0.05: more predictable, consistent answers.',
+      },
+      balanced: { title: 'Balanced', body: 'Temperature 0.2: recommended for modeling.' },
+      creative: {
+        title: 'Creative',
+        body: 'Temperature 0.6: more ideas, useful for brainstorming.',
+      },
+    },
+    model: 'Model',
+    defaultModel: 'default',
+    modelHint: 'Open models served by our own server.',
+    readOnly: 'Only editors and the administrator can change it.',
+    lastChange: 'Last change:',
+    save: 'Save',
+    saveError: 'Could not save the settings.',
+  },
   ai: {
     noDiagram: 'Open or save a diagram before talking to Trazo.',
     dockSide: 'Dock to the right',

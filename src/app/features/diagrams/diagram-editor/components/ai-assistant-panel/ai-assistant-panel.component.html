@@ -62,6 +62,23 @@
             </button>
           </div>
           <div class="flex items-center gap-0.5">
+            <!-- Configurar Trazo; la etiqueta indica a todos si no aplica cambios -->
+            @if (trazoSettings(); as settings) {
+              <button
+                type="button"
+                (click)="openTrazoSettings()"
+                [title]="'trazoSettings.open' | translate"
+                class="btn btn-ghost !h-7 gap-1 !px-1.5"
+                data-tour="trazo-settings"
+              >
+                @if (settings.delivery !== 'apply') {
+                  <span class="badge badge-accent">{{
+                    'trazoSettings.deliveries.' + settings.delivery + '.chip' | translate
+                  }}</span>
+                }
+                <ng-icon name="heroAdjustmentsHorizontal" class="text-sm"></ng-icon>
+              </button>
+            }
             @if (chatMessages().length && (activeChannel() === 'direct' || isAdmin())) {
               <button
                 type="button"
@@ -577,4 +594,15 @@
       </div>
     </div>
   </div>
+}
+
+@if (showTrazoSettings() && trazoSettings(); as settings) {
+  <app-trazo-settings-modal
+    [settings]="settings"
+    [canEdit]="!!settings.canEdit"
+    [isSaving]="isSavingSettings()"
+    [error]="settingsError()"
+    (save)="saveTrazoSettings($event)"
+    (closed)="showTrazoSettings.set(false)"
+  />
 }

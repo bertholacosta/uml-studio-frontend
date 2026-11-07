@@ -428,6 +428,60 @@ export const es = {
     teamPlaceholder: 'Mensaje al equipo… @Trazo para la IA, #Diagrama para el lienzo',
     directPlaceholder: 'Mensaje privado para Trazo…',
   },
+  trazoSettings: {
+    title: 'Configurar Trazo',
+    open: 'Configurar Trazo',
+    subtitle:
+      'Trazo solo actúa cuando alguien le habla. Esto cambia cómo responde a todo el equipo en este proyecto.',
+    delivery: 'Cuando le piden cambios',
+    deliveries: {
+      apply: {
+        title: 'Aplica los cambios',
+        body: 'Edita el diagrama al momento cuando se lo pide alguien que puede editar.',
+        chip: 'Aplica',
+      },
+      propose: {
+        title: 'Siempre propone',
+        body: 'Deja los cambios como propuesta en el chat; el equipo los revisa y pulsa «Aplicar».',
+        chip: 'Propone',
+      },
+      explain: {
+        title: 'Solo explica',
+        body: 'Modo didáctico: explica cómo hacerlo y por qué, sin tocar el diagrama.',
+        chip: 'Solo explica',
+      },
+    },
+    style: 'Estilo',
+    styles: {
+      brief: {
+        title: 'Breve y directo',
+        body: 'Respuestas de una a tres frases, sin teoría salvo que la pidan.',
+      },
+      mentor: {
+        title: 'Mentor',
+        body: 'Explica el porqué con ejemplos del diagrama y hace preguntas para que el equipo piense.',
+      },
+    },
+    creativity: 'Creatividad del modelo',
+    creativities: {
+      precise: {
+        title: 'Precisa',
+        body: 'Temperatura 0,05: respuestas más predecibles y consistentes.',
+      },
+      balanced: { title: 'Equilibrada', body: 'Temperatura 0,2: la recomendada para modelar.' },
+      creative: {
+        title: 'Creativa',
+        body: 'Temperatura 0,6: más ideas, útil en lluvias de ideas.',
+      },
+    },
+    model: 'Modelo',
+    defaultModel: 'predeterminado',
+    modelHint: 'Modelos abiertos que sirve nuestro propio servidor.',
+    readOnly: 'Solo los editores y el administrador pueden cambiarla.',
+    lastChange: 'Último cambio:',
+    save: 'Guardar',
+    saveError: 'No se pudo guardar la configuración.',
+  },
   ai: {
     noDiagram: 'Abre o guarda un diagrama antes de hablar con Trazo.',
     dockSide: 'Acoplar a la derecha',

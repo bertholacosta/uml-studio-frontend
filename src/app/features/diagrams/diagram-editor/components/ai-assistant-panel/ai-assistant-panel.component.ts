@@ -35,6 +35,7 @@ import {
   heroLightBulb,
   heroHashtag,
   heroLockClosed,
+  heroAdjustmentsHorizontal,
 } from '@ng-icons/heroicons/outline';
 import { AuthService } from '../../../../../core/services/auth.service';
 import {
@@ -42,7 +43,10 @@ import {
   ChatChannel,
   ChatMessage,
   TRAZO_USER_ID,
+  TrazoSettings,
+  TrazoSettingsValues,
 } from '../../../../../core/services/ai-assistant.service';
+import { TrazoSettingsModalComponent } from '../trazo-settings-modal/trazo-settings-modal.component';
 import { CollaborationService } from '../../../../../core/services/collaboration.service';
 import { UmlClassNode, UmlConnection } from '../../../../../core/models/diagram.model';
 import { TranslatePipe, TranslationService } from '../../../../../core/i18n';
@@ -88,9 +92,10 @@ export const diagramTag = (name: string) => `#${name.trim().replace(/\s+/g, '-')
   // El host no genera caja: en modo acoplado la columna es un hijo directo del layout flex del editor
   host: { class: 'contents' },
   standalone: true,
-  imports: [CommonModule, FormsModule, NgIconComponent, TranslatePipe],
+  imports: [CommonModule, FormsModule, NgIconComponent, TranslatePipe, TrazoSettingsModalComponent],
   providers: [
     provideIcons({
+      heroAdjustmentsHorizontal,
       heroSparkles,
       heroPlus,
       heroChevronUp,
@@ -180,6 +185,12 @@ export class AiAssistantPanelComponent implements OnDestroy {
   /** A quién responde Trazo ahora en la conversación visible (null si está libre). */
   readonly busyFor = computed(() => this.collaboration.trazoBusyFor()[this.activeChannel()]);
 
+  // «Configurar Trazo»: configuración del proyecto, compartida por el equipo
+  readonly trazoSettings = signal<TrazoSettings | null>(null);
+  readonly showTrazoSettings = signal<boolean>(false);
+  readonly isSavingSettings = signal<boolean>(false);
+  readonly settingsError = signal<string | null>(null);
+
   // Autocompletado de @personas y #diagramas
   readonly mentionOptions = signal<MentionOption[]>([]);
   readonly mentionIndex = signal<number>(0);
@@ -226,6 +237,13 @@ export class AiAssistantPanelComponent implements OnDestroy {
     this.collaboration.chatMessage$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((message) => this.upsertMessage(message));
+    this.collaboration.trazoSettings$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((settings) => {
+        if (settings.projectId && settings.projectId !== this.projectId()) return;
+        // El evento no trae canEdit: se conserva el de esta persona
+        this.trazoSettings.update((current) => ({ ...settings, canEdit: current?.canEdit }));
+      });
     this.collaboration.chatReset$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((conversation) => {
@@ -234,6 +252,34 @@ export class AiAssistantPanelComponent implements OnDestroy {
         this.setMessages(conversation.channel, []);
         this.unread.update((u) => ({ ...u, [conversation.channel]: 0 }));
       });
+  }
+
+  openTrazoSettings(): void {
+    this.settingsError.set(null);
+    this.showTrazoSettings.set(true);
+  }
+
+  saveTrazoSettings(values: TrazoSettingsValues): void {
+    const projectId = this.projectId();
+    if (!projectId) return;
+    this.isSavingSettings.set(true);
+    this.settingsError.set(null);
+    this.aiService.updateTrazoSettings(projectId, values).subscribe({
+      next: (settings) => {
+        this.isSavingSettings.set(false);
+        this.trazoSettings.set(settings);
+        this.showTrazoSettings.set(false);
+      },
+      error: (err) => {
+        this.isSavingSettings.set(false);
+        // El backend envuelve los errores en { error: { message } }
+        const message = err?.error?.error?.message ?? err?.error?.message;
+        this.settingsError.set(
+          (Array.isArray(message) ? message.join(' ') : message) ||
+            this.i18n.t('trazoSettings.saveError'),
+        );
+      },
+    });
   }
 
   ngOnDestroy(): void {
@@ -435,7 +481,16 @@ export class AiAssistantPanelComponent implements OnDestroy {
     this.conversationIds = emptyByChannel(() => null);
     this.messagesByChannel.set(emptyByChannel(() => []));
     this.unread.set(emptyByChannel(() => 0));
+    this.trazoSettings.set(null);
+    this.showTrazoSettings.set(false);
     if (!projectId) return;
+
+    this.aiService.getTrazoSettings(projectId).subscribe({
+      next: (settings) => {
+        if (projectId === this.projectId()) this.trazoSettings.set(settings);
+      },
+      error: () => {},
+    });
 
     this.collaboration.joinProject(projectId);
     this.isLoadingConversation.set(true);

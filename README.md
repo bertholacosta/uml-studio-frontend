@@ -20,6 +20,7 @@ Está hecho con Angular y Foblex Flow y se conecta a la API del repositorio del 
   - Trazo responde a cada persona por su nombre; explica conceptos, revisa el diagrama, lo edita o deja **propuestas** que cualquier editor aplica con «Aplicar al diagrama» (los lectores pueden preguntar, pero no editar). Cada respuesta indica el **#Diagrama** en el que actuó, con un enlace para abrirlo.
   - Las conversaciones y los cambios de Trazo se guardan en el servidor: al volver otro día todo sigue ahí. Solo el administrador puede reiniciar el canal del equipo.
   - Se le puede escribir, dictar por voz o enviar la foto de un diagrama hecho a mano para digitalizarlo.
+  - **Configurar Trazo** (botón de ajustes del chat): el equipo elige si Trazo aplica los cambios, siempre los propone o solo explica; si responde breve o como mentor; su creatividad y qué modelo usa. Lo cambian los editores, todos lo ven al momento y Trazo lo anuncia en el canal. Una etiqueta en el chat indica cuándo Trazo propone o solo explica.
 - **Generar Full Stack**: vista previa navegable del código Spring Boot y Flutter generado a partir del diagrama, con resaltado de sintaxis y descarga en `.zip`.
 - **Importar y exportar**: JSON y XMI 2.1 (Enterprise Architect); imagen en PNG, SVG y BMP.
 - **Primeros pasos**: un recorrido guiado por el editor que se puede repetir desde la página de inicio.
