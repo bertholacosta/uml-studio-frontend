@@ -1374,3 +1374,35 @@ f-flow f-connection.uml-preview-conn-removed .f-connection-path {
 .uml-preview-legend-removed {
   color: var(--color-danger);
 }
+
+/* Trazo escribiendo en vivo: cursor que parpadea al final del texto y cambios que aparecen */
+.trazo-caret {
+  display: inline-block;
+  width: 7px;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  border-radius: 1px;
+  background: var(--color-accent-fg, currentColor);
+  animation: trazo-caret-blink 1s steps(2, start) infinite;
+}
+@keyframes trazo-caret-blink {
+  to {
+    visibility: hidden;
+  }
+}
+.trazo-draft-action {
+  animation: trazo-draft-in 0.25s ease-out;
+}
+@keyframes trazo-draft-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trazo-caret,
+  .trazo-draft-action {
+    animation: none;
+  }
+}

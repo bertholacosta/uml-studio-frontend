@@ -45,6 +45,7 @@ import {
   ChatChannel,
   ChatMessage,
   TRAZO_USER_ID,
+  TrazoDraft,
   TrazoSettings,
   TrazoSettingsValues,
 } from '../../../../../core/services/ai-assistant.service';
@@ -193,6 +194,9 @@ export class AiAssistantPanelComponent implements OnDestroy {
   readonly isSlowReply = signal<boolean>(false);
   /** A quién responde Trazo ahora en la conversación visible (null si está libre). */
   readonly busyFor = computed(() => this.collaboration.trazoBusyFor()[this.activeChannel()]);
+  /** Respuesta que Trazo está escribiendo en cada conversación (en vivo). */
+  readonly drafts = signal<Record<ChatChannel, TrazoDraft | null>>(emptyByChannel(() => null));
+  readonly activeDraft = computed(() => this.drafts()[this.activeChannel()]);
 
   // «Configurar Trazo»: configuración del proyecto, compartida por el equipo
   readonly trazoSettings = signal<TrazoSettings | null>(null);
@@ -246,6 +250,28 @@ export class AiAssistantPanelComponent implements OnDestroy {
     this.collaboration.chatMessage$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((message) => this.upsertMessage(message));
+    this.collaboration.trazoDraft$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((draft) => {
+      if (draft.projectId !== this.projectId()) return;
+      const conversationId = this.conversationIds[draft.channel];
+      if (conversationId && draft.conversationId !== conversationId) return;
+      // Si la respuesta final ya llegó, el borrador sobra
+      const answered = this.messagesByChannel()[draft.channel].some(
+        (m) => m.role === 'assistant' && m.replyTo === draft.replyTo,
+      );
+      if (answered) return;
+      this.drafts.update((d) => ({ ...d, [draft.channel]: draft }));
+      if (draft.channel === this.activeChannel()) this.scrollToBottom();
+    });
+    // Cuando Trazo queda libre no queda ningún borrador a medias
+    effect(() => {
+      const busy = this.collaboration.trazoBusyFor();
+      untracked(() =>
+        this.drafts.update((d) => ({
+          team: busy.team === null ? null : d.team,
+          direct: busy.direct === null ? null : d.direct,
+        })),
+      );
+    });
     this.collaboration.trazoSettings$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((settings) => {
@@ -321,7 +347,7 @@ export class AiAssistantPanelComponent implements OnDestroy {
   }
 
   /** Nombre de quien hizo la pregunta que responde un mensaje de Trazo. */
-  askerOf(message: ChatMessage): string | null {
+  askerOf(message: { replyTo?: string }): string | null {
     if (!message.replyTo) return null;
     const asked = this.chatMessages().find((m) => m.id === message.replyTo);
     return asked ? this.firstName(asked.author.userName) : null;
@@ -490,6 +516,7 @@ export class AiAssistantPanelComponent implements OnDestroy {
     this.conversationIds = emptyByChannel(() => null);
     this.messagesByChannel.set(emptyByChannel(() => []));
     this.unread.set(emptyByChannel(() => 0));
+    this.drafts.set(emptyByChannel(() => null));
     this.trazoSettings.set(null);
     this.showTrazoSettings.set(false);
     if (!projectId) return;
@@ -551,6 +578,11 @@ export class AiAssistantPanelComponent implements OnDestroy {
       const next = [...list];
       next[index] = { ...message, image: message.image || list[index].image };
       this.setMessages(channel, next);
+    }
+
+    // La respuesta final reemplaza a la que Trazo estaba escribiendo
+    if (message.role === 'assistant' && this.drafts()[channel]?.replyTo === message.replyTo) {
+      this.drafts.update((d) => ({ ...d, [channel]: null }));
     }
 
     // Llegó la respuesta de Trazo a mi mensaje

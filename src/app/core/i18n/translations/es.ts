@@ -527,6 +527,12 @@ export const es = {
     appliedBy: 'Aplicada por',
     proposalViewer: 'Un editor del proyecto puede aplicarla.',
     previewProposal: 'Vista previa',
+    phase: {
+      reading: 'Leyendo la conversación y el diagrama…',
+      writing: 'Escribiendo…',
+      preparing: 'Preparando los cambios…',
+      applying: 'Aplicando los cambios al diagrama…',
+    },
     exitPreview: 'Salir de la vista previa',
     changesApplied: 'Cambios aplicados',
     needsClarification: 'Necesito un detalle más',

@@ -66,6 +66,25 @@ export interface AiResponse {
   assistantMessage?: ChatMessage;
 }
 
+/** En qué está Trazo mientras responde. */
+export type TrazoDraftPhase = 'reading' | 'writing' | 'preparing' | 'applying';
+
+/** Respuesta de Trazo mientras la escribe (evento trazo_draft); la reemplaza el mensaje final. */
+export interface TrazoDraft {
+  projectId: string;
+  conversationId: string;
+  channel: ChatChannel;
+  /** Mensaje al que responde. */
+  replyTo: string;
+  diagramId?: string;
+  diagramName?: string;
+  phase: TrazoDraftPhase;
+  /** Texto escrito hasta ahora. */
+  text: string;
+  /** Cambios que ya decidió, como pasos («crea la clase Pago con id: UUID»). */
+  actions: string[];
+}
+
 /** Cómo quedaría el diagrama con una propuesta de Trazo (sin guardarlo). */
 export interface ProposalPreview {
   messageId: string;

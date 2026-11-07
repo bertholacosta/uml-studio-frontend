@@ -522,6 +522,12 @@ export const en = {
     appliedBy: 'Applied by',
     proposalViewer: 'A project editor can apply it.',
     previewProposal: 'Preview',
+    phase: {
+      reading: 'Reading the conversation and the diagram…',
+      writing: 'Writing…',
+      preparing: 'Preparing the changes…',
+      applying: 'Applying the changes to the diagram…',
+    },
     exitPreview: 'Exit preview',
     changesApplied: 'Changes applied',
     needsClarification: 'I need one more detail',

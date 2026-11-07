@@ -392,7 +392,64 @@
                 }
               }
 
-              @if (isAiProcessing() || busyFor() !== null) {
+              @if (activeDraft(); as draft) {
+                <!-- Trazo escribiendo en vivo: el mensaje final lo reemplaza -->
+                <div class="flex items-start gap-2" data-trazo-draft aria-live="polite">
+                  <span class="ai-avatar chat-trazo-avatar">
+                    <ng-icon name="heroSparkles" class="text-xs"></ng-icon>
+                  </span>
+                  <div class="min-w-0 flex-1 space-y-2">
+                    <div
+                      class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-fg-subtle"
+                    >
+                      <span class="font-medium text-fg-muted">{{ 'ai.title' | translate }}</span>
+                      <span class="chat-bot-badge">{{ 'chat.aiBadge' | translate }}</span>
+                      @if (askerOf(draft); as asker) {
+                        <span>{{ 'ai.replyingTo' | translate }} {{ asker }}</span>
+                      }
+                      @if (draft.diagramName) {
+                        <span class="chat-ref">{{ tagOf(draft.diagramName) }}</span>
+                      }
+                    </div>
+                    @if (draft.text) {
+                      <p class="ai-reply text-[13px] leading-relaxed whitespace-pre-wrap text-fg">
+                        <span [innerHTML]="formatText(draft.text)"></span>
+                        @if (draft.phase === 'writing') {
+                          <span class="trazo-caret" aria-hidden="true"></span>
+                        }
+                      </p>
+                    }
+                    @if (draft.actions.length) {
+                      <div class="ai-changes">
+                        <ng-icon
+                          name="heroPencilSquare"
+                          class="mt-px shrink-0 text-sm text-accent-fg"
+                        ></ng-icon>
+                        <ul class="min-w-0 space-y-0.5 text-[12.5px] text-fg-muted">
+                          @for (action of draft.actions; track $index) {
+                            <li class="trazo-draft-action">{{ action }}</li>
+                          }
+                        </ul>
+                      </div>
+                    }
+                    <p class="flex items-center gap-2 text-[12px] text-fg-subtle">
+                      <span class="flex gap-1">
+                        <span
+                          class="h-1 w-1 animate-bounce rounded-full bg-accent-fg [animation-delay:-0.3s]"
+                        ></span>
+                        <span
+                          class="h-1 w-1 animate-bounce rounded-full bg-accent-fg [animation-delay:-0.15s]"
+                        ></span>
+                        <span class="h-1 w-1 animate-bounce rounded-full bg-accent-fg"></span>
+                      </span>
+                      <span>{{ 'ai.phase.' + draft.phase | translate }}</span>
+                      @if (draft.phase === 'reading' && isSlowReply()) {
+                        <span>· {{ 'ai.wakingUp' | translate }}</span>
+                      }
+                    </p>
+                  </div>
+                </div>
+              } @else if (isAiProcessing() || busyFor() !== null) {
                 <div class="flex items-center gap-2.5 text-[13px] text-fg-muted">
                   <span class="flex gap-1">
                     <span

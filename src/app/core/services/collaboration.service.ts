@@ -4,7 +4,13 @@ import { Subject } from 'rxjs';
 import { AuthService } from './auth.service';
 import { UmlClassNode, UmlConnection } from '../models/diagram.model';
 import { User } from '../models/user.model';
-import { ChatChannel, ChatConversation, ChatMessage, TrazoSettings } from './ai-assistant.service';
+import {
+  ChatChannel,
+  ChatConversation,
+  ChatMessage,
+  TrazoDraft,
+  TrazoSettings,
+} from './ai-assistant.service';
 import { environment } from '../../../environments/environment';
 
 export interface RemoteCursor {
@@ -61,6 +67,8 @@ export class CollaborationService {
   // Chat del proyecto: canal del equipo y conversación privada con Trazo
   readonly chatMessage$ = new Subject<ChatMessage>();
   readonly chatReset$ = new Subject<ChatConversation>();
+  /** Trazo escribiendo en vivo. */
+  readonly trazoDraft$ = new Subject<TrazoDraft>();
   /** Alguien cambió la configuración de Trazo del proyecto. */
   readonly trazoSettings$ = new Subject<TrazoSettings & { projectId?: string }>();
   /** A quién está respondiendo Trazo en cada conversación (null si está libre). */
@@ -221,6 +229,7 @@ export class CollaborationService {
     this.socket.on('chat_reset', (conversation: ChatConversation) =>
       this.chatReset$.next(conversation),
     );
+    this.socket.on('trazo_draft', (draft: TrazoDraft) => this.trazoDraft$.next(draft));
     this.socket.on('trazo_settings', (settings: TrazoSettings & { projectId?: string }) =>
       this.trazoSettings$.next(settings),
     );
