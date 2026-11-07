@@ -38,6 +38,7 @@ import {
   heroAdjustmentsHorizontal,
   heroEye,
   heroEyeSlash,
+  heroArrowUturnLeft,
 } from '@ng-icons/heroicons/outline';
 import { AuthService } from '../../../../../core/services/auth.service';
 import {
@@ -101,6 +102,7 @@ export const diagramTag = (name: string) => `#${name.trim().replace(/\s+/g, '-')
       heroAdjustmentsHorizontal,
       heroEye,
       heroEyeSlash,
+      heroArrowUturnLeft,
       heroSparkles,
       heroPlus,
       heroChevronUp,
@@ -196,6 +198,11 @@ export class AiAssistantPanelComponent implements OnDestroy {
   readonly isSlowReply = signal<boolean>(false);
   /** A quién responde Trazo ahora en la conversación visible (null si está libre). */
   readonly busyFor = computed(() => this.collaboration.trazoBusyFor()[this.activeChannel()]);
+  /** Mensaje al que se está respondiendo («Responder»), en la conversación visible. */
+  readonly replyingTo = signal<ChatMessage | null>(null);
+  /** Mensaje resaltado un momento al saltar a él desde una cita. */
+  readonly flashedId = signal<string | null>(null);
+
   /** Respuesta que Trazo está escribiendo en cada conversación (en vivo). */
   readonly drafts = signal<Record<ChatChannel, TrazoDraft | null>>(emptyByChannel(() => null));
   readonly activeDraft = computed(() => this.drafts()[this.activeChannel()]);
@@ -421,7 +428,40 @@ export class AiAssistantPanelComponent implements OnDestroy {
       .replace(/(^|[^\p{L}\d_&])([@#][\p{L}\d_-]+)/gu, '$1<span class="chat-ref">$2</span>');
   }
 
+  /** «Responder» a un mensaje: aparece citado sobre la barra de texto. */
+  replyTo(message: ChatMessage): void {
+    if (message.pending) return;
+    this.replyingTo.set(message);
+    this.expand();
+    setTimeout(() => this.promptInputRef?.nativeElement.focus());
+  }
+
+  cancelReply(): void {
+    this.replyingTo.set(null);
+  }
+
+  /** Salta al mensaje citado y lo resalta un momento. */
+  jumpToMessage(messageId: string): void {
+    const el = this.chatScrollContainerRef?.nativeElement.querySelector(
+      `[data-message-id="${messageId}"]`,
+    );
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    this.flashedId.set(messageId);
+    setTimeout(() => {
+      if (this.flashedId() === messageId) this.flashedId.set(null);
+    }, 1600);
+  }
+
+  /** Texto corto de un mensaje para la cita. */
+  quoteText(text: string): string {
+    const clean = text.replace(/\s+/g, ' ').trim();
+    return clean.length > 140 ? `${clean.slice(0, 139)}…` : clean;
+  }
+
   selectChannel(channel: ChatChannel): void {
+    // La cita es de la conversación anterior
+    if (channel !== this.activeChannel()) this.replyingTo.set(null);
     this.activeChannel.set(channel);
     this.unread.update((u) => ({ ...u, [channel]: 0 }));
     this.closeMentions();
@@ -447,6 +487,10 @@ export class AiAssistantPanelComponent implements OnDestroy {
         this.closeMentions();
         return;
       }
+    }
+    if (event.key === 'Escape' && this.replyingTo()) {
+      this.cancelReply();
+      return;
     }
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
@@ -673,8 +717,23 @@ export class AiAssistantPanelComponent implements OnDestroy {
       return;
     }
 
-    const callsTrazo = channel === 'direct' || !!imageBase64 || TRAZO_MENTION.test(text);
+    const quoted = this.replyingTo();
+    // Responder a Trazo lo llama sin escribir @Trazo
+    const callsTrazo =
+      channel === 'direct' ||
+      !!imageBase64 ||
+      TRAZO_MENTION.test(text) ||
+      (!!quoted && quoted.role === 'assistant');
     const mentions = this.mentionedUserIds(text);
+    const quote = quoted
+      ? {
+          messageId: quoted.id,
+          authorName: quoted.author.userName,
+          isTrazo: quoted.role === 'assistant',
+          text: this.quoteText(quoted.text),
+        }
+      : undefined;
+    this.replyingTo.set(null);
 
     // Mensaje provisional: el servidor lo confirma y lo reparte
     const user = this.authService.currentUser();
@@ -692,6 +751,7 @@ export class AiAssistantPanelComponent implements OnDestroy {
         author: { userId: user?.id || '', userName: user?.fullName || '' },
         text: text || this.i18n.t('ai.imageRequest'),
         mentions,
+        quote,
         image: imageBase64 || undefined,
         status: 'success',
         createdAt: new Date().toISOString(),
@@ -734,6 +794,7 @@ export class AiAssistantPanelComponent implements OnDestroy {
           text,
           mentions,
           clientId,
+          quoteOf: quoted?.id,
           ...openDiagram,
         });
 

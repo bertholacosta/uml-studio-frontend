@@ -35,7 +35,14 @@ export interface ChatMessage {
   status: 'success' | 'clarification' | 'error';
   changesSummary?: string;
   operationsCount?: number;
-  proposal?: { state: 'pending' | 'applied'; appliedBy?: ChatAuthor; appliedAt?: string };
+  /** replaced: alguien respondió pidiendo cambios y Trazo dejó una propuesta nueva. */
+  proposal?: {
+    state: 'pending' | 'applied' | 'replaced';
+    appliedBy?: ChatAuthor;
+    appliedAt?: string;
+  };
+  /** Mensaje al que responde («Responder», como en WhatsApp). */
+  quote?: { messageId: string; authorName: string; isTrazo: boolean; text: string };
   /** Cambio de Trazo en el lienzo: resaltado mientras está pendiente; se acepta o se deshace. */
   review?: {
     state: 'pending' | 'accepted' | 'reverted';
@@ -123,6 +130,8 @@ export interface SendChatMessage extends OpenDiagram {
   text: string;
   mentions?: string[];
   clientId?: string;
+  /** Id del mensaje al que se responde; si es de Trazo, no hace falta @Trazo. */
+  quoteOf?: string;
 }
 
 /** apply: aplica los cambios pedidos; propose: siempre propone; explain: solo explica. */

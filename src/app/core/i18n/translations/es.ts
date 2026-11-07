@@ -427,6 +427,13 @@ export const es = {
     teamSuggestion3: '@Trazo ¿qué clases podríamos agregar a {diagram}?',
     teamPlaceholder: 'Mensaje al equipo… @Trazo para la IA, #Diagrama para el lienzo',
     directPlaceholder: 'Mensaje privado para Trazo…',
+    reply: 'Responder',
+    replyingTo: 'Respondiendo a',
+    cancelReply: 'Cancelar respuesta (Esc)',
+    noMentionNeeded: 'no hace falta @Trazo',
+    replyPlaceholder: 'Escribe tu respuesta…',
+    replyTrazoPlaceholder: 'Responde a Trazo: pídele cambios sobre su propuesta o pregúntale…',
+    jumpToQuote: 'Ir al mensaje citado',
   },
   review: {
     title: 'Cambios de Trazo',
@@ -538,6 +545,7 @@ export const es = {
     applying: 'Aplicando…',
     appliedBy: 'Aplicada por',
     proposalViewer: 'Un editor del proyecto puede aplicarla.',
+    proposalReplaced: 'Reemplazada por una propuesta nueva (más abajo).',
     previewProposal: 'Vista previa',
     step: 'Paso',
     phase: {

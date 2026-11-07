@@ -424,6 +424,13 @@ export const en = {
     teamSuggestion2: '@Trazo review {diagram} and tell us what you would improve',
     teamSuggestion3: '@Trazo what classes could we add to {diagram}?',
     teamPlaceholder: 'Message the team… @Trazo for the AI, #Diagram for the canvas',
+    reply: 'Reply',
+    replyingTo: 'Replying to',
+    cancelReply: 'Cancel reply (Esc)',
+    noMentionNeeded: 'no need for @Trazo',
+    replyPlaceholder: 'Write your reply…',
+    replyTrazoPlaceholder: 'Reply to Trazo: ask for changes to its proposal or ask a question…',
+    jumpToQuote: 'Go to the quoted message',
     directPlaceholder: 'Private message to Trazo…',
   },
   review: {
@@ -533,6 +540,7 @@ export const en = {
     applying: 'Applying…',
     appliedBy: 'Applied by',
     proposalViewer: 'A project editor can apply it.',
+    proposalReplaced: 'Replaced by a new proposal (below).',
     previewProposal: 'Preview',
     step: 'Step',
     phase: {

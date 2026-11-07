@@ -188,7 +188,12 @@
               @for (msg of chatMessages(); track msg.id) {
                 @if (msg.role === 'user' && msg.author.userId === myUserId) {
                   <!-- Mis mensajes, a la derecha -->
-                  <div class="flex flex-col items-end gap-1.5" [class.opacity-60]="msg.pending">
+                  <div
+                    class="chat-msg group flex flex-col items-end gap-1.5"
+                    [class.opacity-60]="msg.pending"
+                    [class.is-flashed]="flashedId() === msg.id"
+                    [attr.data-message-id]="msg.id"
+                  >
                     @if (msg.image) {
                       <img
                         [src]="msg.image"
@@ -196,13 +201,40 @@
                         alt=""
                       />
                     }
-                    <div class="ai-bubble-user">
-                      <p class="whitespace-pre-wrap" [innerHTML]="formatText(msg.text)"></p>
+                    <div class="flex items-center gap-1">
+                      <button
+                        type="button"
+                        class="chat-reply-btn"
+                        (click)="replyTo(msg)"
+                        [title]="'chat.reply' | translate"
+                        [attr.aria-label]="'chat.reply' | translate"
+                      >
+                        <ng-icon name="heroArrowUturnLeft" class="text-xs"></ng-icon>
+                      </button>
+                      <div class="ai-bubble-user">
+                        @if (msg.quote; as quote) {
+                          <button
+                            type="button"
+                            class="chat-quote"
+                            [class.is-trazo]="quote.isTrazo"
+                            (click)="jumpToMessage(quote.messageId)"
+                            [title]="'chat.jumpToQuote' | translate"
+                          >
+                            <span class="chat-quote-author">{{ quote.authorName }}</span>
+                            <span class="chat-quote-text">{{ quote.text }}</span>
+                          </button>
+                        }
+                        <p class="whitespace-pre-wrap" [innerHTML]="formatText(msg.text)"></p>
+                      </div>
                     </div>
                   </div>
                 } @else if (msg.role === 'user') {
                   <!-- Mensajes de otras personas del equipo, con su nombre y color -->
-                  <div class="flex items-start gap-2">
+                  <div
+                    class="chat-msg group flex items-start gap-2"
+                    [class.is-flashed]="flashedId() === msg.id"
+                    [attr.data-message-id]="msg.id"
+                  >
                     <span class="ai-avatar" [style.background]="colorOf(msg)">
                       {{ initialOf(msg.author.userName) }}
                     </span>
@@ -220,17 +252,44 @@
                           alt=""
                         />
                       }
-                      <div
-                        class="ai-bubble-peer"
-                        [class.is-mention]="myUserId && msg.mentions?.includes(myUserId)"
-                      >
-                        <p class="whitespace-pre-wrap" [innerHTML]="formatText(msg.text)"></p>
+                      <div class="flex items-center gap-1">
+                        <div
+                          class="ai-bubble-peer"
+                          [class.is-mention]="myUserId && msg.mentions?.includes(myUserId)"
+                        >
+                          @if (msg.quote; as quote) {
+                            <button
+                              type="button"
+                              class="chat-quote"
+                              [class.is-trazo]="quote.isTrazo"
+                              (click)="jumpToMessage(quote.messageId)"
+                              [title]="'chat.jumpToQuote' | translate"
+                            >
+                              <span class="chat-quote-author">{{ quote.authorName }}</span>
+                              <span class="chat-quote-text">{{ quote.text }}</span>
+                            </button>
+                          }
+                          <p class="whitespace-pre-wrap" [innerHTML]="formatText(msg.text)"></p>
+                        </div>
+                        <button
+                          type="button"
+                          class="chat-reply-btn"
+                          (click)="replyTo(msg)"
+                          [title]="'chat.reply' | translate"
+                          [attr.aria-label]="'chat.reply' | translate"
+                        >
+                          <ng-icon name="heroArrowUturnLeft" class="text-xs"></ng-icon>
+                        </button>
                       </div>
                     </div>
                   </div>
                 } @else {
                   <!-- Trazo, un miembro más del equipo -->
-                  <div class="flex items-start gap-2">
+                  <div
+                    class="chat-msg group flex items-start gap-2"
+                    [class.is-flashed]="flashedId() === msg.id"
+                    [attr.data-message-id]="msg.id"
+                  >
                     <span class="ai-avatar chat-trazo-avatar">
                       <ng-icon name="heroSparkles" class="text-xs"></ng-icon>
                     </span>
@@ -240,6 +299,15 @@
                       >
                         <span class="font-medium text-fg-muted">{{ 'ai.title' | translate }}</span>
                         <span class="chat-bot-badge">{{ 'chat.aiBadge' | translate }}</span>
+                        <button
+                          type="button"
+                          class="chat-reply-btn order-last"
+                          (click)="replyTo(msg)"
+                          [title]="'chat.reply' | translate"
+                          [attr.aria-label]="'chat.reply' | translate"
+                        >
+                          <ng-icon name="heroArrowUturnLeft" class="text-xs"></ng-icon>
+                        </button>
                         @if (askerOf(msg); as asker) {
                           <span>{{ 'ai.replyingTo' | translate }} {{ asker }}</span>
                         }
@@ -313,6 +381,10 @@
                                   ></ng-icon>
                                   {{ 'ai.appliedBy' | translate }}
                                   {{ msg.proposal.appliedBy?.userName }}
+                                </p>
+                              } @else if (msg.proposal.state === 'replaced') {
+                                <p class="mt-1.5 text-[12px] text-fg-subtle">
+                                  {{ 'ai.proposalReplaced' | translate }}
                                 </p>
                               } @else {
                                 <div class="mt-2 flex flex-wrap items-center gap-1.5">
@@ -551,6 +623,32 @@
         </div>
       }
 
+      @if (replyingTo(); as quoted) {
+        <!-- Respondiendo a un mensaje: se cita sobre lo que se escribe -->
+        <div class="chat-reply-bar" data-reply-bar>
+          <ng-icon name="heroArrowUturnLeft" class="shrink-0 text-sm text-accent-fg"></ng-icon>
+          <div class="min-w-0 flex-1">
+            <p class="text-[11px] font-semibold text-accent-fg">
+              {{ 'chat.replyingTo' | translate }} {{ quoted.author.userName }}
+              @if (quoted.role === 'assistant' && activeChannel() === 'team') {
+                <span class="font-normal text-fg-subtle"
+                  >· {{ 'chat.noMentionNeeded' | translate }}</span
+                >
+              }
+            </p>
+            <p class="truncate text-[12px] text-fg-muted">{{ quoteText(quoted.text) }}</p>
+          </div>
+          <button
+            type="button"
+            (click)="cancelReply()"
+            [title]="'chat.cancelReply' | translate"
+            class="btn btn-ghost btn-icon !h-7 !w-7 shrink-0"
+          >
+            <ng-icon name="heroXMark" class="text-sm"></ng-icon>
+          </button>
+        </div>
+      }
+
       @if (attachedImageBase64() || isVoiceListening()) {
         <div class="flex flex-wrap items-center gap-2 px-2 pt-2">
           @if (attachedImageBase64()) {
@@ -639,9 +737,13 @@
           [placeholder]="
             (attachedImageBase64()
               ? 'ai.placeholderImage'
-              : activeChannel() === 'team'
-                ? 'chat.teamPlaceholder'
-                : 'chat.directPlaceholder'
+              : replyingTo()?.role === 'assistant'
+                ? 'chat.replyTrazoPlaceholder'
+                : replyingTo()
+                  ? 'chat.replyPlaceholder'
+                  : activeChannel() === 'team'
+                    ? 'chat.teamPlaceholder'
+                    : 'chat.directPlaceholder'
             ) | translate
           "
           class="block max-h-32 min-h-9 flex-1 resize-none bg-transparent px-1.5 py-2 text-[14px] leading-5 text-fg outline-none placeholder:text-fg-subtle"
