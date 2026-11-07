@@ -1,26 +1,34 @@
-import { Component, input, output, signal, inject, computed, effect, OnInit } from '@angular/core';
+import {
+  Component,
+  input,
+  output,
+  signal,
+  inject,
+  computed,
+  effect,
+  untracked,
+  OnInit,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NgIconComponent, provideIcons } from '@ng-icons/core';
 import {
-  heroBolt,
-  heroCodeBracket,
-  heroCube,
-  heroDocumentText,
-  heroFolder,
-  heroServer,
-  heroCommandLine,
   heroArrowDownTray,
-  heroClipboardDocument,
-  heroCheck,
-  heroXMark,
   heroArrowPath,
-  heroCpuChip,
-  heroSparkles,
+  heroCheck,
   heroCircleStack,
-  heroAdjustmentsHorizontal,
+  heroClipboardDocument,
+  heroCodeBracket,
+  heroCog6Tooth,
+  heroCube,
   heroDevicePhoneMobile,
+  heroDocument,
+  heroDocumentText,
   heroExclamationTriangle,
+  heroMagnifyingGlass,
+  heroServer,
+  heroSquares2x2,
+  heroXMark,
 } from '@ng-icons/heroicons/outline';
 import {
   CodeGeneratorService,
@@ -50,30 +58,41 @@ hljs.registerLanguage('json', json);
 hljs.registerLanguage('xml', xml);
 hljs.registerLanguage('properties', properties);
 
+type Platform = 'all' | 'spring-boot' | 'flutter';
+
+/** Capas que se pueden filtrar en la lista de archivos. */
+const CATEGORY_LAYERS = [
+  'entity',
+  'repository',
+  'dto',
+  'service',
+  'controller',
+  'migration',
+  'docker',
+];
+
 @Component({
   standalone: true,
   selector: 'app-spring-boot-modal',
   imports: [CommonModule, FormsModule, NgIconComponent, TranslatePipe],
   providers: [
     provideIcons({
-      heroBolt,
-      heroCodeBracket,
-      heroCube,
-      heroDocumentText,
-      heroFolder,
-      heroServer,
-      heroCommandLine,
       heroArrowDownTray,
-      heroClipboardDocument,
-      heroCheck,
-      heroXMark,
       heroArrowPath,
-      heroCpuChip,
-      heroSparkles,
+      heroCheck,
       heroCircleStack,
-      heroAdjustmentsHorizontal,
+      heroClipboardDocument,
+      heroCodeBracket,
+      heroCog6Tooth,
+      heroCube,
       heroDevicePhoneMobile,
+      heroDocument,
+      heroDocumentText,
       heroExclamationTriangle,
+      heroMagnifyingGlass,
+      heroServer,
+      heroSquares2x2,
+      heroXMark,
     }),
   ],
   templateUrl: './spring-boot-modal.component.html',
@@ -92,7 +111,7 @@ export class SpringBootModalComponent implements OnInit {
   readonly closeModal = output<void>();
 
   // Selección de Plataforma
-  selectedPlatform = signal<'all' | 'spring-boot' | 'flutter'>('all');
+  selectedPlatform = signal<Platform>('all');
 
   // Configuración del Proyecto
   packageName = signal<string>('com.uagrm.studio');
@@ -115,22 +134,65 @@ export class SpringBootModalComponent implements OnInit {
   // Archivos generados
   files = signal<GeneratedFile[]>([]);
 
+  /** Plataformas que se pueden generar. */
+  readonly platforms: { id: Platform; icon: string; label: string }[] = [
+    { id: 'all', icon: 'heroSquares2x2', label: 'codeGen.platformAll' },
+    { id: 'spring-boot', icon: 'heroServer', label: 'codeGen.springBootTab' },
+    { id: 'flutter', icon: 'heroDevicePhoneMobile', label: 'codeGen.flutterTab' },
+  ];
+
+  /** Búsqueda de archivos por nombre o ruta. */
+  readonly fileQuery = signal<string>('');
+
+  private inCategory(file: GeneratedFile, category: string): boolean {
+    if (category === 'all') return true;
+    if (category === 'flutter') {
+      return (
+        file.path.includes('mobile_flutter') ||
+        file.path.startsWith('lib/') ||
+        file.language === 'dart'
+      );
+    }
+    if (category === 'spring-boot') {
+      return (
+        file.path.includes('backend') || file.path.startsWith('src/') || file.language === 'java'
+      );
+    }
+    return file.layer === category;
+  }
+
   readonly filteredFiles = computed(() => {
-    const cat = this.activeCategory();
-    const all = this.files();
-    if (cat === 'all') return all;
-    if (cat === 'flutter') {
-      return all.filter(
-        (f) =>
-          f.path.includes('mobile_flutter') || f.path.startsWith('lib/') || f.language === 'dart',
-      );
-    }
-    if (cat === 'spring-boot') {
-      return all.filter(
-        (f) => f.path.includes('backend') || f.path.startsWith('src/') || f.language === 'java',
-      );
-    }
-    return all.filter((f) => f.layer === cat);
+    const category = this.activeCategory();
+    const query = this.fileQuery().trim().toLowerCase();
+    return this.files().filter(
+      (f) =>
+        this.inCategory(f, category) &&
+        (!query ||
+          f.filename.toLowerCase().includes(query) ||
+          f.path.toLowerCase().includes(query)),
+    );
+  });
+
+  /** Capas que tienen archivos, con cuántos (para el selector de capa). */
+  readonly categoryOptions = computed(() => {
+    const files = this.files();
+    const ids = [
+      'all',
+      ...(this.selectedPlatform() === 'all' ? ['spring-boot', 'flutter'] : []),
+      ...CATEGORY_LAYERS,
+    ];
+    return ids
+      .map((id) => ({
+        id,
+        label:
+          id === 'all'
+            ? 'codeGen.categories.all'
+            : id === 'spring-boot'
+              ? 'codeGen.categories.springBoot'
+              : `codeGen.categories.${id}`,
+        count: files.filter((f) => this.inCategory(f, id)).length,
+      }))
+      .filter((option) => option.id === 'all' || option.count > 0);
   });
 
   readonly totalClasses = computed(() => {
@@ -222,9 +284,9 @@ export class SpringBootModalComponent implements OnInit {
           this.artifactId.set(clean || 'sistema-app');
           this.projectName.set(name);
         }
-        if (diagId) {
-          this.generatePreview();
-        }
+        // Solo al abrir o cambiar de diagrama: generatePreview lee el diagrama y el formulario,
+        // y sin untracked cada cambio de esos datos volvía a generar (dos peticiones al abrir)
+        if (diagId) untracked(() => this.generatePreview());
       }
     });
   }
@@ -239,9 +301,31 @@ export class SpringBootModalComponent implements OnInit {
     }
   }
 
-  setPlatform(plat: 'all' | 'spring-boot' | 'flutter'): void {
+  setPlatform(plat: Platform): void {
+    if (plat === this.selectedPlatform()) return;
     this.selectedPlatform.set(plat);
+    this.activeCategory.set('all');
     this.generatePreview();
+  }
+
+  /** Carpeta de un archivo (lo que va antes del nombre en el visor). */
+  dirOf(path: string): string {
+    const cut = path.lastIndexOf('/');
+    return cut >= 0 ? path.slice(0, cut + 1) : '';
+  }
+
+  /** Icono neutro según el tipo de archivo. */
+  fileIcon(file: GeneratedFile): string {
+    const name = file.filename.toLowerCase();
+    if (file.layer === 'docker' || name.includes('docker')) return 'heroCube';
+    if (file.layer === 'migration' || name.endsWith('.sql')) return 'heroCircleStack';
+    if (file.language === 'dart') return 'heroDevicePhoneMobile';
+    if (name.endsWith('.java')) return 'heroCodeBracket';
+    if (file.layer === 'docs' || name.endsWith('.md')) return 'heroDocumentText';
+    if (/\.(ya?ml|properties|json|xml|gradle|env)$/.test(name) || file.layer === 'config') {
+      return 'heroCog6Tooth';
+    }
+    return 'heroDocument';
   }
 
   generatePreview(): void {
@@ -345,62 +429,27 @@ export class SpringBootModalComponent implements OnInit {
     });
   }
 
-  getLayerBadge(file: GeneratedFile): { label: string; class: string } {
+  /** Capa del archivo en palabras, para la lista (sin colores: el estilo de la app es neutro). */
+  layerLabel(file: GeneratedFile): string {
     if (file.language === 'dart') {
-      if (file.path.includes('/bloc/')) {
-        return { label: 'Flutter BLoC', class: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30' };
-      }
-      if (file.path.includes('/pages/') || file.path.includes('/widgets/')) {
-        return { label: 'Flutter UI', class: 'bg-sky-500/10 text-sky-300 border-sky-500/30' };
-      }
-      if (file.path.includes('/usecases/')) {
-        return { label: 'UseCase', class: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30' };
-      }
-      if (file.path.includes('/entities/')) {
-        return {
-          label: 'Dart Entity',
-          class: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
-        };
-      }
-      if (file.path.includes('/datasources/')) {
-        return {
-          label: 'Remote DataSource (Dio)',
-          class: 'bg-amber-500/10 text-amber-300 border-amber-500/30',
-        };
-      }
-      return { label: 'Flutter Dart', class: 'bg-blue-500/10 text-blue-300 border-blue-500/30' };
+      if (file.path.includes('/bloc/')) return 'Flutter · BLoC';
+      if (file.path.includes('/pages/') || file.path.includes('/widgets/')) return 'Flutter · UI';
+      if (file.path.includes('/usecases/')) return 'Flutter · UseCase';
+      if (file.path.includes('/entities/')) return 'Flutter · Entidad';
+      if (file.path.includes('/datasources/')) return 'Flutter · DataSource (Dio)';
+      return 'Flutter';
     }
-
-    switch (file.layer) {
-      case 'entity':
-        return {
-          label: 'Entidad JPA',
-          class: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
-        };
-      case 'repository':
-        return { label: 'Repositorio', class: 'bg-blue-500/10 text-blue-300 border-blue-500/30' };
-      case 'dto':
-        return { label: 'DTO', class: 'bg-purple-500/10 text-purple-300 border-purple-500/30' };
-      case 'service':
-        return {
-          label: 'Servicio',
-          class: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30',
-        };
-      case 'controller':
-        return {
-          label: 'REST Controller',
-          class: 'bg-rose-500/10 text-rose-300 border-rose-500/30',
-        };
-      case 'migration':
-        return { label: 'Flyway SQL', class: 'bg-amber-500/10 text-amber-300 border-amber-500/30' };
-      case 'docker':
-        return { label: 'Docker Compose', class: 'bg-sky-500/10 text-sky-300 border-sky-500/30' };
-      case 'config':
-        return { label: 'Configuración', class: 'bg-white/5 text-fg-muted border-line' };
-      case 'docs':
-        return { label: 'Documentación', class: 'bg-teal-500/10 text-teal-300 border-teal-500/30' };
-      default:
-        return { label: file.layer, class: 'bg-white/5 text-fg-muted border-line' };
-    }
+    const labels: Record<string, string> = {
+      entity: 'Entidad JPA',
+      repository: 'Repositorio',
+      dto: 'DTO',
+      service: 'Servicio',
+      controller: 'REST Controller',
+      migration: 'Flyway SQL',
+      docker: 'Docker Compose',
+      config: 'Configuración',
+      docs: 'Documentación',
+    };
+    return labels[file.layer] || file.layer;
   }
 }

@@ -219,6 +219,9 @@
   .alert-info {
     @apply border-accent-fg/40 bg-accent-soft text-accent-fg;
   }
+  .alert-warning {
+    @apply border-warning/40 bg-warning/5 text-warning;
+  }
 
   /* Modales */
   .modal-backdrop {
@@ -1541,4 +1544,122 @@ f-flow f-connection.uml-preview-conn-removed .f-connection-path {
     animation: none;
     outline: 1px solid var(--color-accent-fg);
   }
+}
+
+/* =========================================================================
+   GENERADOR DE CÓDIGO (mismo lenguaje visual que el resto de la app)
+   ========================================================================= */
+
+.codegen-field {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11.5px;
+  color: var(--color-fg-muted);
+}
+.codegen-inline-code {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 6px;
+  border: 1px solid var(--color-line);
+  border-radius: 4px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--color-fg-muted);
+  user-select: all;
+}
+.codegen-file {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  text-align: left;
+  color: var(--color-fg-muted);
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+.codegen-file:hover {
+  background: rgb(255 255 255 / 0.04);
+  color: var(--color-fg);
+}
+.codegen-file.is-active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-fg);
+}
+
+/* Visor: números de línea y resaltado con la paleta de la app */
+.codegen-code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--color-fg);
+}
+.codegen-gutter {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  flex-shrink: 0;
+  padding: 16px 12px 16px 16px;
+  border-right: 1px solid var(--color-line);
+  background: var(--color-bg);
+  color: var(--color-fg-subtle);
+  text-align: right;
+  user-select: none;
+  opacity: 0.7;
+}
+.codegen-pre {
+  flex: 1;
+  margin: 0;
+  padding: 16px 20px;
+  white-space: pre;
+}
+.codegen-code .hljs {
+  display: block;
+  overflow: visible;
+  padding: 0;
+  background: transparent;
+  color: var(--color-fg);
+}
+.codegen-code .hljs-keyword,
+.codegen-code .hljs-built_in,
+.codegen-code .hljs-selector-tag,
+.codegen-code .hljs-doctag {
+  color: var(--color-accent-fg);
+}
+.codegen-code .hljs-string,
+.codegen-code .hljs-regexp,
+.codegen-code .hljs-addition {
+  color: var(--color-success);
+}
+.codegen-code .hljs-number,
+.codegen-code .hljs-literal,
+.codegen-code .hljs-meta,
+.codegen-code .hljs-symbol {
+  color: var(--color-warning);
+}
+.codegen-code .hljs-comment,
+.codegen-code .hljs-quote {
+  color: var(--color-fg-subtle);
+  font-style: italic;
+}
+.codegen-code .hljs-title,
+.codegen-code .hljs-section,
+.codegen-code .hljs-type,
+.codegen-code .hljs-class .hljs-title {
+  color: var(--color-fg);
+  font-weight: 600;
+}
+.codegen-code .hljs-attr,
+.codegen-code .hljs-attribute,
+.codegen-code .hljs-variable,
+.codegen-code .hljs-params,
+.codegen-code .hljs-property {
+  color: var(--color-fg-muted);
+}
+.codegen-code .hljs-deletion {
+  color: var(--color-danger);
 }
