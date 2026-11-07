@@ -1,9 +1,11 @@
 <!-- Chat del proyecto (estilo Slack): canal del equipo, donde Trazo es un miembro más, y conversación privada con Trazo.
      Barra abajo en el centro con conversación plegable, o acoplado como panel a la derecha -->
 @if (isOpen()) {
+  <!-- data-channel tiñe todo el chat: azul en el canal del equipo, naranja en el privado con Trazo -->
   <div
     data-tour="ai-panel"
-    class="flex flex-col gap-2"
+    class="chat-panel flex flex-col gap-2"
+    [attr.data-channel]="activeChannel()"
     [ngClass]="
       dock() === 'side'
         ? 'relative h-full w-[380px] max-w-[45vw] shrink-0 p-2 pl-3'
@@ -21,25 +23,27 @@
     <!-- Conversación -->
     @if (isExpanded() || dock() === 'side') {
       <div
-        class="flex flex-col overflow-hidden"
-        [ngClass]="dock() === 'side' ? 'min-h-0 flex-1' : 'island max-h-[min(460px,55vh)]'"
+        class="chat-conversation flex flex-col overflow-hidden"
+        [ngClass]="dock() === 'side' ? 'min-h-0 flex-1' : 'island max-h-[min(500px,58vh)]'"
       >
         <div
           class="flex shrink-0 items-center justify-between gap-2 pr-1.5 pl-2"
-          [ngClass]="dock() === 'side' ? 'h-11 pl-1' : 'h-10 border-b border-line'"
+          [ngClass]="dock() === 'side' ? 'h-12 pl-1' : 'h-12'"
         >
-          <!-- Pestañas: canal del equipo y conversación privada con Trazo -->
-          <div class="chat-tabs" role="tablist">
+          <!-- Canales: el del equipo (lo ven todos) y la conversación privada con Trazo -->
+          <div class="chat-channels" role="tablist" [attr.aria-label]="'chat.channels' | translate">
             <button
               type="button"
               role="tab"
               [attr.aria-selected]="activeChannel() === 'team'"
               [class.is-active]="activeChannel() === 'team'"
               (click)="selectChannel('team')"
-              class="chat-tab"
+              class="chat-channel is-team"
+              [title]="'chat.teamHint' | translate"
+              data-channel-tab="team"
             >
-              <ng-icon name="heroHashtag" class="text-xs"></ng-icon>
-              {{ 'chat.team' | translate }}
+              <ng-icon name="heroUserGroup" class="text-sm"></ng-icon>
+              <span>{{ 'chat.team' | translate }}</span>
               @if (unread().team && activeChannel() !== 'team') {
                 <span class="chat-tab-badge">{{ unread().team }}</span>
               }
@@ -50,12 +54,12 @@
               [attr.aria-selected]="activeChannel() === 'direct'"
               [class.is-active]="activeChannel() === 'direct'"
               (click)="selectChannel('direct')"
-              class="chat-tab"
+              class="chat-channel is-direct"
               [title]="'chat.directHint' | translate"
+              data-channel-tab="direct"
             >
-              <ng-icon name="heroSparkles" class="text-xs text-accent-fg"></ng-icon>
-              {{ 'ai.title' | translate }}
-              <ng-icon name="heroLockClosed" class="text-[10px] text-fg-subtle"></ng-icon>
+              <ng-icon name="heroLockClosed" class="text-sm"></ng-icon>
+              <span>{{ 'ai.title' | translate }}</span>
               @if (unread().direct && activeChannel() !== 'direct') {
                 <span class="chat-tab-badge">{{ unread().direct }}</span>
               }
@@ -152,9 +156,52 @@
           </div>
         </div>
 
+        <!-- Quién ve esta conversación: siempre a la vista para no confundir los canales -->
+        <div class="chat-channel-banner" role="status" data-channel-banner>
+          @if (activeChannel() === 'team') {
+            <ng-icon name="heroUserGroup" class="shrink-0 text-sm"></ng-icon>
+            <p class="min-w-0 flex-1 truncate">
+              <strong>{{ 'chat.teamBanner' | translate }}</strong>
+              <span class="chat-channel-banner-detail">
+                ·
+                {{
+                  members().length > 1
+                    ? ('chat.teamBannerCount' | translate: { count: members().length })
+                    : ('chat.teamBannerAll' | translate)
+                }}
+              </span>
+            </p>
+            @if (members().length > 1) {
+              <span class="chat-member-stack" aria-hidden="true">
+                @for (member of members().slice(0, 4); track member.userId) {
+                  <span
+                    class="chat-member-avatar"
+                    [style.background]="memberColor(member)"
+                    [title]="member.userName"
+                    >{{ initialOf(member.userName) }}</span
+                  >
+                }
+                @if (members().length > 4) {
+                  <span class="chat-member-avatar chat-member-more"
+                    >+{{ members().length - 4 }}</span
+                  >
+                }
+              </span>
+            }
+          } @else {
+            <ng-icon name="heroLockClosed" class="shrink-0 text-sm"></ng-icon>
+            <p class="min-w-0 flex-1 truncate">
+              <strong>{{ 'chat.directBanner' | translate }}</strong>
+              <span class="chat-channel-banner-detail">
+                · {{ 'chat.directBannerDetail' | translate }}</span
+              >
+            </p>
+          }
+        </div>
+
         <div
           #chatScrollContainer
-          class="min-h-0 flex-1 overflow-y-auto py-3.5"
+          class="chat-scroll min-h-0 flex-1 overflow-y-auto py-3.5"
           [ngClass]="dock() === 'side' ? 'px-1.5' : 'px-4'"
         >
           @if (isLoadingConversation() && !chatMessages().length) {
@@ -681,6 +728,32 @@
       }
 
       <div class="flex items-end gap-1 p-1.5">
+        <!-- A quién le escribes (se ve también con el chat plegado); al pulsarlo cambia de canal -->
+        <button
+          type="button"
+          class="chat-composer-channel"
+          (click)="selectChannel(activeChannel() === 'team' ? 'direct' : 'team')"
+          [title]="
+            (activeChannel() === 'team' ? 'chat.composerTeamHint' : 'chat.composerDirectHint')
+              | translate
+          "
+          data-composer-channel
+        >
+          <ng-icon
+            [name]="activeChannel() === 'team' ? 'heroUserGroup' : 'heroLockClosed'"
+            class="text-sm"
+          ></ng-icon>
+          <!-- Acoplado a la derecha la franja ya dice el canal: aquí basta el icono -->
+          @if (dock() === 'bottom') {
+            <span>{{
+              (activeChannel() === 'team' ? 'chat.team' : 'chat.directBanner') | translate
+            }}</span>
+          }
+          @if (activeChannel() === 'team' ? unread().direct : unread().team) {
+            <span class="chat-composer-dot" aria-hidden="true"></span>
+          }
+        </button>
+
         <!-- «+»: adjuntar una imagen (foto, archivo o captura); solo quien puede editar -->
         <div class="relative shrink-0" [class.hidden]="!canEdit() || !diagramId()">
           <button

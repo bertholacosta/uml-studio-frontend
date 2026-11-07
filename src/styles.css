@@ -47,6 +47,10 @@
   --color-accent-fg: #ffa476;
   --color-ink: #1a0d06;
 
+  /* Canal del equipo en el chat (el privado con Trazo usa el acento) */
+  --color-team: #8ab4ff;
+  --color-team-soft: #8ab4ff1a;
+
   /* Estados */
   --color-success: #6fcf97;
   --color-warning: #f2c14e;
@@ -1013,40 +1017,184 @@ f-flow f-connection.f-selected .f-connection-path {
   box-shadow: inset 2px 0 0 var(--color-accent);
 }
 
-/* Chat del proyecto: pestañas del canal del equipo y de la conversación privada con Trazo */
-.chat-tabs {
+/* Chat del proyecto: cada canal tiene su color para que no se confundan.
+   Equipo = azul (lo ven todos) · Privado con Trazo = naranja (solo tú) */
+.chat-panel[data-channel='team'] {
+  --chat-tone: var(--color-team);
+  --chat-tone-soft: var(--color-team-soft);
+}
+.chat-panel[data-channel='direct'] {
+  --chat-tone: var(--color-accent-fg);
+  --chat-tone-soft: var(--color-accent-soft);
+}
+
+.chat-channels {
   display: flex;
   min-width: 0;
   align-items: center;
   gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  background: var(--color-bg);
 }
 
-.chat-tab {
+.chat-channel {
   position: relative;
   display: inline-flex;
   height: 28px;
   align-items: center;
-  gap: 5px;
-  padding: 0 9px;
-  border-radius: 8px;
-  color: var(--color-fg-muted);
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--color-fg-subtle);
   font-size: 12.5px;
   font-weight: 500;
   white-space: nowrap;
   transition:
-    background 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease,
     color 0.15s ease;
 }
 
-.chat-tab:hover {
+.chat-channel:hover {
   background: var(--color-elevated);
   color: var(--color-fg);
 }
 
-.chat-tab.is-active {
-  background: var(--color-elevated);
-  color: var(--color-fg);
+.chat-channel.is-team.is-active {
+  border-color: color-mix(in srgb, var(--color-team) 45%, transparent);
+  background: var(--color-team-soft);
+  color: var(--color-team);
   font-weight: 600;
+}
+
+.chat-channel.is-direct.is-active {
+  border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-fg);
+  font-weight: 600;
+}
+
+/* Franja bajo las pestañas: quién ve la conversación */
+.chat-channel-banner {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  margin: 0 8px 2px;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--chat-tone) 30%, transparent);
+  border-radius: 8px;
+  background: var(--chat-tone-soft);
+  color: var(--chat-tone);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.chat-channel-banner strong {
+  font-weight: 600;
+}
+
+.chat-channel-banner-detail {
+  color: var(--color-fg-muted);
+}
+
+.chat-member-stack {
+  display: flex;
+  flex-shrink: 0;
+  padding-left: 6px;
+}
+
+.chat-member-avatar {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  margin-left: -6px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--color-surface);
+  border-radius: 999px;
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 600;
+}
+
+.chat-member-more {
+  background: var(--color-overlay);
+  color: var(--color-fg-muted);
+  font-size: 9px;
+}
+
+/* Borde superior del color del canal (chat abajo en el centro) */
+.chat-panel .chat-conversation.island {
+  border-top: 2px solid var(--chat-tone);
+}
+
+/* Fondo apenas teñido del canal en la lista de mensajes */
+.chat-panel .chat-scroll {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--chat-tone) 4%, transparent),
+    transparent 160px
+  );
+}
+
+/* Mis mensajes llevan el color del canal donde los escribo */
+.chat-panel .ai-bubble-user {
+  border-color: color-mix(in srgb, var(--chat-tone) 30%, transparent);
+  background: var(--chat-tone-soft);
+}
+
+/* Barra de texto: borde del color del canal, con o sin el chat desplegado */
+.chat-panel .ai-prompt-bar {
+  border-color: color-mix(in srgb, var(--chat-tone) 35%, transparent);
+}
+
+.chat-panel .ai-prompt-bar:focus-within {
+  border-color: color-mix(in srgb, var(--chat-tone) 65%, transparent);
+  box-shadow:
+    0 8px 28px rgb(0 0 0 / 0.28),
+    0 0 0 3px color-mix(in srgb, var(--chat-tone) 14%, transparent);
+}
+
+.chat-panel .chat-reply-bar {
+  border-left-color: var(--chat-tone);
+}
+
+/* Etiqueta del canal dentro de la barra de texto (cambia de canal al pulsarla) */
+.chat-composer-channel {
+  position: relative;
+  display: inline-flex;
+  height: 36px;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  border-radius: 12px;
+  background: var(--chat-tone-soft);
+  color: var(--chat-tone);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
+}
+
+.chat-composer-channel:hover {
+  background: color-mix(in srgb, var(--chat-tone) 18%, transparent);
+}
+
+/* Hay mensajes nuevos en el otro canal */
+.chat-composer-dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid var(--color-surface);
+  border-radius: 999px;
+  background: var(--color-accent);
 }
 
 .chat-tab-badge {

@@ -33,7 +33,7 @@ import {
   heroPencilSquare,
   heroChevronDown,
   heroLightBulb,
-  heroHashtag,
+  heroUserGroup,
   heroLockClosed,
   heroAdjustmentsHorizontal,
   heroEye,
@@ -119,7 +119,7 @@ export const diagramTag = (name: string) => `#${name.trim().replace(/\s+/g, '-')
       heroPencilSquare,
       heroChevronDown,
       heroLightBulb,
-      heroHashtag,
+      heroUserGroup,
       heroLockClosed,
     }),
   ],
@@ -396,6 +396,10 @@ export class AiAssistantPanelComponent implements OnDestroy {
     return this.collaboration.colorFor(message.author.userId, message.author.userName);
   }
 
+  memberColor(member: ChatMember): string {
+    return this.collaboration.colorFor(member.userId, member.userName);
+  }
+
   initialOf(name: string): string {
     return (name.trim()[0] || '?').toUpperCase();
   }
@@ -463,7 +467,10 @@ export class AiAssistantPanelComponent implements OnDestroy {
     // La cita es de la conversación anterior
     if (channel !== this.activeChannel()) this.replyingTo.set(null);
     this.activeChannel.set(channel);
-    this.unread.update((u) => ({ ...u, [channel]: 0 }));
+    // Con el chat plegado (cambio desde la barra de texto) los mensajes aún no se han visto
+    if (this.dock() === 'side' || this.isExpanded()) {
+      this.unread.update((u) => ({ ...u, [channel]: 0 }));
+    }
     this.closeMentions();
     this.scrollToBottom();
     setTimeout(() => this.promptInputRef?.nativeElement.focus());
