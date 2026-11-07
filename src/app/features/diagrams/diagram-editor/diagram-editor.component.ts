@@ -99,6 +99,15 @@ const ISLAND_INSET = { left: 76, top: 72 };
 // Sufijo del conector dentro del id: lado (_top…) o la caja completa (__box) con la que se dibujan las líneas
 const SIDE_SUFFIX = /(?:_(?:top|bottom|left|right)|__box)$/;
 
+/** Estado del guardado automático que muestra la barra superior. */
+export type SaveState = 'saved' | 'pending' | 'saving' | 'error';
+/** Se guarda tras este rato sin editar… */
+const AUTOSAVE_IDLE_MS = 1500;
+/** …o como mucho cada tanto aunque se edite sin parar. */
+const AUTOSAVE_MAX_WAIT_MS = 8000;
+/** Reintentos tras un fallo: 2 s, 4 s, 8 s… hasta 30 s. */
+const AUTOSAVE_RETRY_MS = { first: 2000, max: 30000 };
+
 @Component({
   standalone: true,
   selector: 'app-diagram-editor',
@@ -161,12 +170,25 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
   currentDiagramName = signal<string>('Diagrama UML');
   saveSuccessMessage = signal<boolean>(false);
   hasUnsavedChanges = signal<boolean>(false);
+  readonly saveState = signal<SaveState>('saved');
   zoomLevel = signal<number>(100);
 
+  // Guardado automático: cada edición sube la versión y programa un guardado
+  private editVersion = 0;
+  private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Desde cuándo hay cambios esperando (para el tope AUTOSAVE_MAX_WAIT_MS). */
+  private pendingSince = 0;
+  private saveInFlight = false;
+  /** Llegó un guardado manual mientras otro estaba en curso. */
+  private manualSaveQueued = false;
+  private saveFailures = 0;
+
   markAsUnsaved(): void {
-    if (!this.isReadOnly()) {
-      this.hasUnsavedChanges.set(true);
-    }
+    if (this.isReadOnly()) return;
+    this.hasUnsavedChanges.set(true);
+    this.editVersion++;
+    if (!this.saveInFlight && this.saveState() !== 'error') this.saveState.set('pending');
+    if (this.saveFailures === 0) this.scheduleAutosave();
   }
 
   // Rol del usuario actual en el proyecto
@@ -367,6 +389,8 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
     });
 
     this.route.queryParams.subscribe((params) => {
+      // Lo pendiente del diagrama anterior se guarda antes de cambiar de diagrama
+      this.flushAutosave();
       const diagramId = params['diagramId'];
       const projectId = params['projectId'];
       const projectName = params['projectName'];
@@ -426,7 +450,9 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
       this.collaborationService.releaseNodeLock(this.editingNodeId()!);
     }
     if (this.commitTimer) clearTimeout(this.commitTimer);
-    if (this.syncTimer) clearTimeout(this.syncTimer);
+    this.flushPendingSync('update');
+    this.flushAutosave();
+    if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
     this.collaborationService.leaveRoom();
   }
 
@@ -477,6 +503,8 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
       this.collaborationService.joinRoom(diagramId);
 
       this.hasUnsavedChanges.set(false);
+      this.saveState.set('saved');
+      this.saveFailures = 0;
       this.updateConnectionEndpoints();
       this.resetHistory(true);
       setTimeout(() => {
@@ -534,10 +562,15 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
 
   @HostListener('window:beforeunload', ['$event'])
   onBeforeUnload(event: BeforeUnloadEvent): void {
-    if (this.hasUnsavedChanges()) {
-      event.preventDefault();
-      event.returnValue = '';
+    if (!this.hasUnsavedChanges() || this.isReadOnly()) return;
+    // Lo pendiente se envía con keepalive (sobrevive al cierre); si no se puede, se avisa
+    const diagramId = this.currentDiagramId();
+    this.flushPendingSync('update');
+    if (diagramId && this.diagramService.saveAstOnUnload(diagramId, this.buildSavePayload())) {
+      return;
     }
+    event.preventDefault();
+    event.returnValue = '';
   }
 
   @HostListener('window:keydown', ['$event'])
@@ -623,16 +656,101 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
   // GUARDADO E HISTORIAL
   // ======================================================================
 
+  /** Guardado manual (botón o Ctrl+S): inmediato y con confirmación visible. */
   saveToBackend(): void {
     if (this.isReadOnly()) return;
-
-    const diagramId = this.currentDiagramId();
-    if (!diagramId) {
+    if (!this.currentDiagramId()) {
       this.openExportModal();
       return;
     }
+    this.persist(false);
+  }
 
-    const payload: SaveDiagramAstRequest = {
+  /**
+   * Programa el guardado automático: tras AUTOSAVE_IDLE_MS sin editar, o como mucho a los
+   * AUTOSAVE_MAX_WAIT_MS del primer cambio pendiente aunque se siga editando.
+   */
+  private scheduleAutosave(): void {
+    if (this.isReadOnly() || !this.currentDiagramId()) return;
+    const now = Date.now();
+    if (!this.pendingSince) this.pendingSince = now;
+    const wait = Math.min(AUTOSAVE_IDLE_MS, this.pendingSince + AUTOSAVE_MAX_WAIT_MS - now);
+    this.setAutosaveTimer(Math.max(0, wait));
+  }
+
+  private setAutosaveTimer(delayMs: number): void {
+    if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
+    this.autosaveTimer = setTimeout(() => {
+      this.autosaveTimer = null;
+      this.persist(true);
+    }, delayMs);
+  }
+
+  /** Guarda ya lo pendiente (al cambiar de diagrama o salir del editor). */
+  private flushAutosave(): void {
+    if (this.hasUnsavedChanges() && !this.saveInFlight) this.persist(true);
+  }
+
+  /**
+   * Envía el diagrama al servidor. Si ya hay un guardado en curso, se repite al terminar; si
+   * falla, se reintenta con espera creciente. Solo el guardado manual avisa al equipo: los
+   * demás ya tienen el diagrama por la sincronización en vivo, y reenviarlo cada pocos segundos
+   * pisaría lo que estén escribiendo.
+   */
+  private persist(auto: boolean): void {
+    const diagramId = this.currentDiagramId();
+    if (this.isReadOnly() || !diagramId) return;
+    if (this.autosaveTimer) {
+      clearTimeout(this.autosaveTimer);
+      this.autosaveTimer = null;
+    }
+    if (this.saveInFlight) {
+      if (!auto) this.manualSaveQueued = true;
+      return;
+    }
+    if (auto && !this.hasUnsavedChanges()) return;
+
+    const version = this.editVersion;
+    this.saveInFlight = true;
+    this.pendingSince = 0;
+    this.saveState.set('saving');
+    this.diagramService.saveAst(diagramId, this.buildSavePayload()).subscribe({
+      next: () => {
+        this.saveInFlight = false;
+        this.saveFailures = 0;
+        // Si cambió de diagrama mientras tanto, el estado ya es el del diagrama nuevo
+        if (this.currentDiagramId() !== diagramId) return;
+        const dirty = this.editVersion !== version;
+        this.hasUnsavedChanges.set(dirty);
+        this.saveState.set(dirty ? 'pending' : 'saved');
+        if (!auto) {
+          this.saveSuccessMessage.set(true);
+          this.tour.notify('diagram-saved');
+          setTimeout(() => this.saveSuccessMessage.set(false), 2500);
+          this.collaborationService.sendDiagramSync(this.nodes(), this.connections(), 'save');
+        }
+        const manual = this.manualSaveQueued;
+        this.manualSaveQueued = false;
+        if (manual) this.persist(false);
+        else if (dirty) this.scheduleAutosave();
+      },
+      error: () => {
+        this.saveInFlight = false;
+        this.manualSaveQueued = false;
+        if (this.currentDiagramId() !== diagramId) return;
+        this.saveFailures++;
+        this.saveState.set('error');
+        const delay = Math.min(
+          AUTOSAVE_RETRY_MS.max,
+          AUTOSAVE_RETRY_MS.first * 2 ** (this.saveFailures - 1),
+        );
+        this.setAutosaveTimer(delay);
+      },
+    });
+  }
+
+  private buildSavePayload(): SaveDiagramAstRequest {
+    return {
       nodes: this.nodes().map((n) => ({
         id: n.id,
         name: n.isAnchor ? n.name || 'Anchor' : n.name,
@@ -658,16 +776,6 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
         assocAnchorNodeId: c.assocAnchorNodeId || null,
       })),
     };
-
-    this.diagramService.saveAst(diagramId, payload).subscribe({
-      next: () => {
-        this.hasUnsavedChanges.set(false);
-        this.saveSuccessMessage.set(true);
-        this.tour.notify('diagram-saved');
-        setTimeout(() => this.saveSuccessMessage.set(false), 2500);
-        this.collaborationService.sendDiagramSync(this.nodes(), this.connections(), 'save');
-      },
-    });
   }
 
   private snapshot(): { nodes: UmlClassNode[]; connections: UmlConnection[] } {
@@ -1837,7 +1945,7 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
 
   /** Abre otro diagrama del proyecto (desde el enlace «#Diagrama» de un mensaje de Trazo). */
   openDiagramFromChat(diagramId: string): void {
-    if (this.hasUnsavedChanges() && !this.isReadOnly()) this.saveToBackend();
+    this.flushAutosave();
     this.router.navigate(['/diagram'], {
       queryParams: { diagramId, projectId: this.currentProjectId() },
     });
@@ -1854,8 +1962,18 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
     this.nodes.set(cleanNodes);
     const cleanConns = this.sanitizeClientConnections(targetConns, cleanNodes);
     this.connections.set(cleanConns);
-    if (persisted) this.hasUnsavedChanges.set(false);
-    else this.markAsUnsaved();
+    if (!persisted) this.markAsUnsaved();
+    else if (this.saveInFlight) {
+      // Un guardado anterior aún en curso podría pisar lo de Trazo: se vuelve a guardar después
+      this.editVersion++;
+      this.hasUnsavedChanges.set(true);
+    } else {
+      if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
+      this.autosaveTimer = null;
+      this.pendingSince = 0;
+      this.hasUnsavedChanges.set(false);
+      this.saveState.set('saved');
+    }
     this.updateConnectionEndpoints();
     setTimeout(() => {
       this.updateConnectionEndpoints();

@@ -10,6 +10,7 @@ Está hecho con Angular y Foblex Flow y se conecta a la API del repositorio del 
   - Relaciones de borde a borde: asociación, agregación, composición, herencia, dependencia, realización y clase de asociación, con multiplicidades y nombre.
   - Deshacer y rehacer, copiar y pegar, duplicar, zoom, ajustar a la pantalla y atajos de teclado.
   - Lienzo claro (estilo UML clásico) u oscuro.
+  - **Guardado automático**: cada cambio se guarda solo 1,5 s después de dejar de editar (o cada 8 s si no se para). Junto al nombre del diagrama se ve si está guardado, guardándose o sin guardar. Si falla, se reintenta solo; al cambiar de diagrama o cerrar la pestaña se guarda lo pendiente. `Ctrl + S` guarda al instante.
 - **Colaboración en tiempo real**: ves quién está conectado, sus cursores y lo que mueve; una clase queda bloqueada mientras otra persona la edita.
 - **Compartir**: invita por correo con rol de propietario, editor o lector, gestiona los miembros del proyecto y copia el enlace del diagrama.
 - **Chat del equipo con Trazo** (estilo Slack), con el modelo de IA propio que sirve el backend:

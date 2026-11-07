@@ -9,12 +9,17 @@ import {
 } from '../models/diagram.model';
 import { ApiResponse } from '../models/auth.model';
 import { environment } from '../../../environments/environment';
+import { AuthService } from './auth.service';
+
+/** Tope de cuerpo de una petición keepalive (64 KiB) con margen. */
+const KEEPALIVE_MAX_BYTES = 60 * 1024;
 
 @Injectable({
   providedIn: 'root',
 })
 export class DiagramService {
   private readonly http = inject(HttpClient);
+  private readonly auth = inject(AuthService);
   private readonly apiUrl = `${environment.apiUrl}/diagrams`;
 
   // Signals para estado reactivo
@@ -85,5 +90,26 @@ export class DiagramService {
         return throwError(() => err);
       }),
     );
+  }
+
+  /**
+   * Guardado al cerrar la pestaña: fetch con keepalive, que el navegador termina aunque la
+   * página se descargue. Devuelve false si no se pudo enviar (p. ej. diagrama muy grande).
+   */
+  saveAstOnUnload(diagramId: string, payload: SaveDiagramAstRequest): boolean {
+    const token = this.auth.token();
+    const body = JSON.stringify(payload);
+    if (!token || new Blob([body]).size > KEEPALIVE_MAX_BYTES) return false;
+    try {
+      void fetch(`${this.apiUrl}/${diagramId}/ast`, {
+        method: 'PUT',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body,
+      }).catch(() => undefined);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }

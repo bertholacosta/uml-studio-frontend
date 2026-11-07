@@ -230,13 +230,12 @@ export const TOUR_STEPS: TourStep[] = [
   {
     id: 'save',
     target: () => '[data-tour="save"]',
-    title: { es: 'Guarda el diagrama', en: 'Save the diagram' },
+    title: { es: 'Se guarda solo', en: 'It saves itself' },
     body: {
-      es: 'Los cambios se sincronizan en vivo con tu equipo, pero hay que guardarlos para conservarlos. También puedes usar <code>Ctrl + S</code>.',
-      en: 'Changes sync live with your team, but you must save them to keep them. You can also use <code>Ctrl + S</code>.',
+      es: 'Los cambios se sincronizan en vivo con tu equipo y se guardan solos a los pocos segundos; junto al nombre ves si ya está guardado. Si quieres guardar al instante, usa este botón o <code>Ctrl + S</code>.',
+      en: 'Changes sync live with your team and save themselves within a few seconds; next to the name you can see whether it is saved. To save right away, use this button or <code>Ctrl + S</code>.',
     },
-    hint: { es: 'Haz clic en «Guardar».', en: 'Click «Save».' },
-    advance: { type: 'event', event: 'diagram-saved' },
+    advance: { type: 'next' },
   },
   {
     id: 'ai-panel',

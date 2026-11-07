@@ -32,12 +32,14 @@ import {
   heroCheck,
   heroPhoto,
   heroUserPlus,
+  heroExclamationTriangle,
 } from '@ng-icons/heroicons/outline';
 import { AuthService } from '../../../../../core/services/auth.service';
 import { CollaborationService } from '../../../../../core/services/collaboration.service';
 import { TranslatePipe } from '../../../../../core/i18n';
 import { BrandLogoComponent } from '../../../../../core/components/brand-logo/brand-logo.component';
 import { SharePanelComponent } from '../share-panel/share-panel.component';
+import type { SaveState } from '../../diagram-editor.component';
 
 @Component({
   selector: 'app-diagram-appbar',
@@ -72,6 +74,7 @@ import { SharePanelComponent } from '../share-panel/share-panel.component';
       heroCheck,
       heroPhoto,
       heroUserPlus,
+      heroExclamationTriangle,
     }),
   ],
   templateUrl: './diagram-appbar.component.html',
@@ -86,10 +89,9 @@ export class DiagramAppbarComponent {
   readonly diagramTitle = input<string>('Diagrama de Clases UML');
   readonly diagramId = input<string | null>(null);
   readonly projectId = input<string | null>(null);
-  readonly isSaving = input<boolean>(false);
   readonly saveSuccessMessage = input<boolean>(false);
   readonly isReadOnly = input<boolean>(false);
-  readonly hasUnsavedChanges = input<boolean>(false);
+  readonly saveState = input<SaveState>('saved');
 
   // Outputs
   readonly saveDiagram = output<void>();

@@ -14,12 +14,41 @@
     <h1 class="truncate font-medium text-fg" [title]="diagramTitle()">{{ diagramTitle() }}</h1>
   </nav>
 
-  <!-- Estado: cambios sin guardar (la conexión vive en «Compartir») -->
-  @if (hasUnsavedChanges()) {
+  <!-- Estado del guardado automático (la conexión vive en «Compartir») -->
+  @if (diagramId() && !isReadOnly()) {
     <span
-      class="ml-1 h-2 w-2 shrink-0 rounded-full bg-amber-300"
-      [title]="'editor.statusbar.unsaved' | translate"
-    ></span>
+      class="ml-1 flex shrink-0 items-center gap-1 text-xs whitespace-nowrap"
+      data-tour="save-state"
+      aria-live="polite"
+      [class.text-fg-subtle]="saveState() !== 'error'"
+      [class.text-warning]="saveState() === 'error'"
+      [title]="
+        (saveState() === 'error'
+          ? 'appbar.autosave.errorTooltip'
+          : saveState() === 'pending'
+            ? 'appbar.autosave.pending'
+            : 'appbar.autosave.savedTooltip'
+        ) | translate
+      "
+    >
+      @switch (saveState()) {
+        @case ('saving') {
+          <span class="spinner !h-3 !w-3"></span>
+          <span class="hidden lg:inline">{{ 'appbar.autosave.saving' | translate }}</span>
+        }
+        @case ('pending') {
+          <span class="h-2 w-2 rounded-full bg-amber-300"></span>
+        }
+        @case ('error') {
+          <ng-icon name="heroExclamationTriangle" class="text-sm"></ng-icon>
+          <span class="hidden lg:inline">{{ 'appbar.autosave.error' | translate }}</span>
+        }
+        @default {
+          <ng-icon name="heroCheck" class="text-sm"></ng-icon>
+          <span class="hidden lg:inline">{{ 'appbar.autosave.saved' | translate }}</span>
+        }
+      }
+    </span>
   }
 
   @if (isReadOnly()) {
@@ -36,13 +65,10 @@
       type="button"
       data-tour="save"
       (click)="saveDiagram.emit()"
-      [disabled]="isSaving()"
       [title]="'appbar.saveTooltip' | translate"
       class="btn btn-ghost btn-sm btn-icon shrink-0"
     >
-      @if (isSaving()) {
-        <span class="spinner !h-3.5 !w-3.5"></span>
-      } @else if (saveSuccessMessage()) {
+      @if (saveSuccessMessage()) {
         <ng-icon name="heroCheck" class="text-base text-success"></ng-icon>
       } @else {
         <ng-icon name="heroCloudArrowUp" class="text-base"></ng-icon>
