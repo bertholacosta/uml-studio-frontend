@@ -8,7 +8,9 @@ import {
   HostListener,
   inject,
   computed,
+  DestroyRef,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -173,6 +175,7 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
   currentProjectId = signal<string | null>(null);
   /** Miembros y diagramas del proyecto, para las @menciones y los #diagramas del chat. */
   readonly projectMembers = signal<ChatMember[]>([]);
+  private readonly destroyRef = inject(DestroyRef);
   readonly projectDiagrams = signal<ChatDiagram[]>([]);
   currentDiagramName = signal<string>('Diagrama UML');
   saveSuccessMessage = signal<boolean>(false);
@@ -483,6 +486,17 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
       // Los cambios de otros usuarios no se deshacen desde aquí
       this.resetHistory(true);
     });
+
+    // Un diagrama nuevo del proyecto (p. ej. creado por Trazo) ya se puede mencionar con #
+    this.collaborationService.diagramActivity$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(({ projectId, diagramId }) => {
+        if (projectId !== this.currentProjectId()) return;
+        if (this.projectDiagrams().some((d) => d.id === diagramId)) return;
+        this.diagramService.loadDiagramsByProject(projectId).subscribe((diagrams) => {
+          this.projectDiagrams.set((diagrams || []).map((d) => ({ id: d.id, name: d.name })));
+        });
+      });
 
     this.collaborationService.nodeLockRejected$.subscribe((data) => {
       if (this.editingNodeId() === data.nodeId) {

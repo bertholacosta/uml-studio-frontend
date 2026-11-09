@@ -71,6 +71,12 @@ export class CollaborationService {
   readonly trazoDraft$ = new Subject<TrazoDraft>();
   /** Alguien cambió la configuración de Trazo del proyecto. */
   readonly trazoSettings$ = new Subject<TrazoSettings & { projectId?: string }>();
+  /** Cambió un diagrama del proyecto o se creó uno nuevo. */
+  readonly diagramActivity$ = new Subject<{
+    projectId: string;
+    diagramId: string;
+    diagramName: string;
+  }>();
   /** A quién está respondiendo Trazo en cada conversación (null si está libre). */
   readonly trazoBusyFor = signal<Record<ChatChannel, string | null>>({ team: null, direct: null });
   private currentProjectId: string | null = null;
@@ -225,6 +231,7 @@ export class CollaborationService {
       },
     );
 
+    this.socket.on('diagram_activity', (data) => this.diagramActivity$.next(data));
     this.socket.on('chat_message', (message: ChatMessage) => this.chatMessage$.next(message));
     this.socket.on('chat_reset', (conversation: ChatConversation) =>
       this.chatReset$.next(conversation),

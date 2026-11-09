@@ -442,6 +442,11 @@ export const es = {
       'Conversa con tu equipo en tiempo real. Escribe @Trazo para pedirle algo a la IA y #Diagrama para indicar en qué lienzo trabajar.',
     directEmptyBody:
       'Tu conversación privada con Trazo: nadie más ve estos mensajes. Los cambios que le pidas sí se aplican al diagrama para todos.',
+    hubOpen: 'Hablar con Trazo',
+    hubProject: 'Proyecto',
+    hubSuggestion1: 'crea un diagrama para una tienda en línea',
+    hubSuggestion2: '¿qué diagramas tiene este proyecto y de qué trata cada uno?',
+    hubSuggestion3: 'ponme al día: ¿qué avanzó el equipo?',
     teamSuggestion1: '@Trazo ¿qué es un atributo derivado y cuándo conviene usarlo?',
     teamSuggestion2: '@Trazo revisa {diagram} y dinos qué mejorarías',
     teamSuggestion3: '@Trazo ¿qué clases podríamos agregar a {diagram}?',

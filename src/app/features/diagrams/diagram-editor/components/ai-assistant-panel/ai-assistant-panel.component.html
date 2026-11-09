@@ -7,9 +7,11 @@
     class="chat-panel flex flex-col gap-2"
     [attr.data-channel]="activeChannel()"
     [ngClass]="
-      dock() === 'side'
-        ? 'relative h-full w-[380px] max-w-[45vw] shrink-0 p-2 pl-3'
-        : 'absolute bottom-4 left-1/2 z-40 w-[min(620px,calc(100%-460px))] min-w-[360px] -translate-x-1/2'
+      embedded()
+        ? 'relative h-full w-full p-2'
+        : dock() === 'side'
+          ? 'relative h-full w-[380px] max-w-[45vw] shrink-0 p-2 pl-3'
+          : 'absolute bottom-4 left-1/2 z-40 w-[min(620px,calc(100%-460px))] min-w-[360px] -translate-x-1/2'
     "
   >
     <input
@@ -101,6 +103,7 @@
               (click)="toggleDock()"
               [title]="(dock() === 'side' ? 'ai.dockBottom' : 'ai.dockSide') | translate"
               class="btn btn-ghost btn-icon !h-7 !w-7"
+              [class.hidden]="embedded()"
             >
               <svg
                 viewBox="0 0 20 20"

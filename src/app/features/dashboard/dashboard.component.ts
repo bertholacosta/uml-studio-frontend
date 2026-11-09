@@ -15,12 +15,13 @@ import { ProjectService } from '../../core/services/project.service';
 import { TourService } from '../../core/tour/tour.service';
 import { TranslatePipe, TranslationService } from '../../core/i18n';
 import { Project } from '../../core/models/project.model';
+import { TrazoHubComponent } from '../trazo-hub/trazo-hub.component';
 
 /** Página principal tras iniciar sesión: «Primeros pasos» y proyectos recientes. */
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [AppHeaderComponent, RouterLink, NgIconComponent, TranslatePipe],
+  imports: [AppHeaderComponent, RouterLink, NgIconComponent, TranslatePipe, TrazoHubComponent],
   providers: [
     provideIcons({
       heroCheck,

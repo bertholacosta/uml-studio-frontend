@@ -441,6 +441,11 @@ export const en = {
       'Chat with your team in real time. Type @Trazo to ask the AI and #Diagram to choose which canvas to work on.',
     directEmptyBody:
       'Your private conversation with Trazo: nobody else sees these messages. Changes you ask for are applied to the diagram for everyone.',
+    hubOpen: 'Talk to Trazo',
+    hubProject: 'Project',
+    hubSuggestion1: 'create a diagram for an online store',
+    hubSuggestion2: 'which diagrams does this project have and what is each one about?',
+    hubSuggestion3: 'catch me up: what has the team done?',
     teamSuggestion1: '@Trazo what is a derived attribute and when should we use one?',
     teamSuggestion2: '@Trazo review {diagram} and tell us what you would improve',
     teamSuggestion3: '@Trazo what classes could we add to {diagram}?',

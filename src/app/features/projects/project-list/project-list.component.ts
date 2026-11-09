@@ -35,6 +35,7 @@ import { TourService } from '../../../core/tour/tour.service';
 import { Project, ProjectRole } from '../../../core/models/project.model';
 import { TranslatePipe } from '../../../core/i18n';
 import { AppHeaderComponent } from '../../../core/components/app-header/app-header.component';
+import { TrazoHubComponent } from '../../trazo-hub/trazo-hub.component';
 
 @Component({
   selector: 'app-project-list',
@@ -46,6 +47,7 @@ import { AppHeaderComponent } from '../../../core/components/app-header/app-head
     NgIconComponent,
     TranslatePipe,
     AppHeaderComponent,
+    TrazoHubComponent,
   ],
   providers: [
     provideIcons({

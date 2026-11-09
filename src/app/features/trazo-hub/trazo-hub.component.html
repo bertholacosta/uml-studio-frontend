@@ -1,0 +1,46 @@
+@if (project(); as current) {
+  @if (isOpen()) {
+    <aside
+      class="island fixed right-4 bottom-4 z-40 flex h-[min(680px,calc(100dvh-2rem))] w-[min(440px,calc(100vw-2rem))] flex-col overflow-hidden"
+      data-trazo-hub
+    >
+      <label class="flex shrink-0 items-center gap-2 border-b border-line px-3 py-2">
+        <ng-icon name="heroSparkles" class="shrink-0 text-base text-accent"></ng-icon>
+        <span class="sr-only">{{ 'chat.hubProject' | translate }}</span>
+        <select
+          class="input input-sm min-w-0 flex-1"
+          [ngModel]="current.id"
+          (ngModelChange)="selectProject($event)"
+        >
+          @for (p of projects(); track p.id) {
+            <option [value]="p.id">{{ p.name }}</option>
+          }
+        </select>
+      </label>
+      <div class="min-h-0 flex-1">
+        <app-ai-assistant-panel
+          [isOpen]="true"
+          [embedded]="true"
+          dock="side"
+          [projectId]="current.id"
+          [diagrams]="diagrams()"
+          [members]="members()"
+          [canEdit]="current.userRole !== 'VIEWER'"
+          [isAdmin]="current.userRole === 'OWNER'"
+          (closePanel)="isOpen.set(false)"
+          (openDiagram)="openDiagram($event)"
+        ></app-ai-assistant-panel>
+      </div>
+    </aside>
+  } @else {
+    <button
+      type="button"
+      class="btn btn-primary fixed right-5 bottom-5 z-40 gap-2 shadow-lg"
+      (click)="isOpen.set(true)"
+      data-trazo-hub-open
+    >
+      <ng-icon name="heroSparkles" class="text-base"></ng-icon>
+      {{ 'chat.hubOpen' | translate }}
+    </button>
+  }
+}

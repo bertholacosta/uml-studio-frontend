@@ -438,4 +438,9 @@
       </div>
     </div>
   }
+
+  <!-- El chat se descarga cuando la página ya está lista -->
+  @defer (on idle) {
+    <app-trazo-hub />
+  }
 </div>

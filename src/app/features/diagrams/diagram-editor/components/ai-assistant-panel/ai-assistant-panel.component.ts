@@ -142,6 +142,8 @@ export class AiAssistantPanelComponent implements OnDestroy {
   /** Barra flotante abajo al centro o columna acoplada a la derecha. */
   readonly dock = input<'bottom' | 'side'>('bottom');
   readonly dockChange = output<'bottom' | 'side'>();
+  /** Fuera del editor (Trazo en Inicio y Proyectos): ocupa su contenedor y empieza en privado. */
+  readonly embedded = input<boolean>(false);
   readonly closePanel = output<void>();
   readonly projectId = input<string | null>(null);
   /** Diagrama abierto en el editor (Trazo trabaja en él si no se indica otro con #). */
@@ -256,6 +258,13 @@ export class AiAssistantPanelComponent implements OnDestroy {
   readonly suggestions = computed(() => {
     const open = this.diagrams().find((d) => d.id === this.diagramId());
     const tag = open ? diagramTag(open.name) : '';
+    if (this.embedded()) {
+      // En el canal del equipo Trazo solo responde si lo mencionan
+      const mention = this.activeChannel() === 'team' ? '@Trazo ' : '';
+      return ['chat.hubSuggestion1', 'chat.hubSuggestion2', 'chat.hubSuggestion3'].map(
+        (key) => `${mention}${this.i18n.t(key)}`,
+      );
+    }
     const keys =
       this.activeChannel() === 'team'
         ? ['chat.teamSuggestion1', 'chat.teamSuggestion2', 'chat.teamSuggestion3']
@@ -264,6 +273,10 @@ export class AiAssistantPanelComponent implements OnDestroy {
   });
 
   constructor() {
+    effect(() => {
+      if (this.embedded()) untracked(() => this.activeChannel.set('direct'));
+    });
+
     // Al cambiar de proyecto se cargan sus dos conversaciones y se sigue su canal
     effect(() => {
       const projectId = this.projectId();

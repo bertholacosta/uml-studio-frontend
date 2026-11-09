@@ -1,6 +1,11 @@
 <div class="flex min-h-screen flex-col bg-bg text-fg">
   <app-header />
 
+  <!-- El chat se descarga cuando la página ya está lista -->
+  @defer (on idle) {
+    <app-trazo-hub />
+  }
+
   <section class="glow-top border-b border-line">
     <div class="mx-auto max-w-7xl px-4 pt-16 pb-12 sm:px-6">
       <p class="eyebrow mb-5">{{ 'dashboard.eyebrow' | translate }}</p>
