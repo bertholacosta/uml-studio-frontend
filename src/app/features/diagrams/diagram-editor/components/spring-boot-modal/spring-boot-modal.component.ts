@@ -432,11 +432,10 @@ export class SpringBootModalComponent implements OnInit {
   /** Capa del archivo en palabras, para la lista (sin colores: el estilo de la app es neutro). */
   layerLabel(file: GeneratedFile): string {
     if (file.language === 'dart') {
-      if (file.path.includes('/bloc/')) return 'Flutter · BLoC';
-      if (file.path.includes('/pages/') || file.path.includes('/widgets/')) return 'Flutter · UI';
-      if (file.path.includes('/usecases/')) return 'Flutter · UseCase';
-      if (file.path.includes('/entities/')) return 'Flutter · Entidad';
-      if (file.path.includes('/datasources/')) return 'Flutter · DataSource (Dio)';
+      if (file.path.endsWith('/schema.dart')) return 'Flutter · Esquema del diagrama';
+      if (file.path.endsWith('/api.dart')) return 'Flutter · API (Dio)';
+      if (file.path.includes('/screens/')) return 'Flutter · Pantalla';
+      if (file.path.includes('/assistant/')) return 'Flutter · Asistente IA';
       return 'Flutter';
     }
     const labels: Record<string, string> = {

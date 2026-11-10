@@ -351,7 +351,7 @@ export const en = {
   codeGen: {
     binaryFile: 'Binary file: included in the ZIP download.',
     title: 'Generate code',
-    subtitle: 'Spring Boot 3 Microservice + Flutter Mobile App with Clean Architecture',
+    subtitle: 'Spring Boot 3 Microservice + Flutter mobile app with on-device AI',
     stats: '{{classes}} classes · {{relations}} relationships · {{files}} files',
     platform: 'Platform',
     platformAll: 'Both',
@@ -383,7 +383,7 @@ export const en = {
       repository: 'Repositories & DataSources',
       dto: 'DTOs & Data Models',
       service: 'Services & UseCases',
-      controller: 'Controllers & BLoC / UI',
+      controller: 'Controllers & screens',
       migration: 'Flyway SQL (DDL)',
       docker: 'Docker Compose',
     },
@@ -401,8 +401,8 @@ export const en = {
     fileTree: 'File Structure',
     selectFile: 'Select a file from the explorer to preview its source code',
     readyStatus: {
-      all: 'Fullstack solution ready: Spring Boot (backend/) + Flutter Clean Architecture (mobile_flutter/)',
-      flutter: 'Flutter App ready with BLoC, Dio, GetIt and local consumption via USB / 10.0.2.2',
+      all: 'Fullstack solution ready: Spring Boot (backend/) + generic Flutter app (mobile_flutter/)',
+      flutter: 'Generic Flutter app with on-device AI assistant; use 10.0.2.2 on the emulator',
       springBoot: 'Spring Boot microservice ready with PostgreSQL 16 and Flyway on port {{port}}',
     },
     hasAuthInfo: 'JWT authentication module automatically detected from User class.',
@@ -410,7 +410,7 @@ export const en = {
     featuresList: {
       springBoot:
         'Spring Boot 3.4 + Java 21 + Spring Data JPA + Flyway + PostgreSQL + OpenAPI Swagger',
-      flutter: 'Flutter + Clean Architecture + BLoC + Dio + SharedPreferences + Material 3',
+      flutter: 'Flutter + Dio + Material 3 + on-device Qwen2.5 (llama.cpp)',
     },
   },
   chat: {

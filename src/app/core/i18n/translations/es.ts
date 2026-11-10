@@ -352,7 +352,7 @@ export const es = {
   codeGen: {
     binaryFile: 'Archivo binario: se incluye en la descarga ZIP.',
     title: 'Generar código',
-    subtitle: 'Microservicio Spring Boot 3 + Aplicación Móvil Flutter con Clean Architecture',
+    subtitle: 'Microservicio Spring Boot 3 + app móvil Flutter con IA local',
     stats: '{{classes}} clases · {{relations}} relaciones · {{files}} archivos',
     platform: 'Plataforma',
     platformAll: 'Ambos',
@@ -384,7 +384,7 @@ export const es = {
       repository: 'Repositorios & DataSources',
       dto: 'DTOs & Data Models',
       service: 'Servicios & UseCases',
-      controller: 'Controllers & BLoC / UI',
+      controller: 'Controllers & pantallas',
       migration: 'Flyway SQL (DDL)',
       docker: 'Docker Compose',
     },
@@ -402,8 +402,8 @@ export const es = {
     fileTree: 'Estructura de Archivos',
     selectFile: 'Elige un archivo para ver su código.',
     readyStatus: {
-      all: 'Spring Boot en backend/ y Flutter (Clean Architecture) en mobile_flutter/',
-      flutter: 'App Flutter con BLoC, Dio y GetIt; en el emulador usa 10.0.2.2',
+      all: 'Spring Boot en backend/ y app Flutter genérica en mobile_flutter/',
+      flutter: 'App Flutter genérica con asistente de IA local; en el emulador usa 10.0.2.2',
       springBoot: 'API Spring Boot con PostgreSQL y Flyway en el puerto {{port}}',
     },
     hasAuthInfo:
@@ -412,7 +412,7 @@ export const es = {
     featuresList: {
       springBoot:
         'Spring Boot 3.4 + Java 21 + Spring Data JPA + Flyway + PostgreSQL + OpenAPI Swagger',
-      flutter: 'Flutter + Clean Architecture + BLoC + Dio + SharedPreferences + Material 3',
+      flutter: 'Flutter + Dio + Material 3 + Qwen2.5 en el dispositivo (llama.cpp)',
     },
   },
   chat: {
