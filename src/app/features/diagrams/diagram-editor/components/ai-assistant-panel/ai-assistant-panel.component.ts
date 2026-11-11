@@ -54,6 +54,7 @@ import { TrazoSettingsModalComponent } from '../trazo-settings-modal/trazo-setti
 import { CollaborationService } from '../../../../../core/services/collaboration.service';
 import { UmlClassNode, UmlConnection } from '../../../../../core/models/diagram.model';
 import { TranslatePipe, TranslationService } from '../../../../../core/i18n';
+import { DictationStatus, LocalDictation, Recording } from './local-dictation';
 
 /** Las fotos se reducen antes de enviarlas: el modelo no necesita más y viajan más rápido. */
 const MAX_IMAGE_SIDE = 1600;
@@ -185,6 +186,8 @@ export class AiAssistantPanelComponent implements OnDestroy {
   readonly attachedImageBase64 = signal<string | null>(null);
   readonly attachedImageName = signal<string | null>(null);
   readonly isVoiceListening = signal<boolean>(false);
+  /** Estado del dictado local tras grabar: descarga del modelo o transcripción; null si nada. */
+  readonly voiceStatus = signal<string | null>(null);
   readonly showWebcamModal = signal<boolean>(false);
 
   /** Mensajes del canal del equipo y de la conversación privada. */
@@ -253,6 +256,7 @@ export class AiAssistantPanelComponent implements OnDestroy {
   private replyTimeout: ReturnType<typeof setTimeout> | null = null;
 
   private speechRecognition: any = null;
+  private recording: Recording | null = null;
   private webcamMediaStream: MediaStream | null = null;
 
   readonly suggestions = computed(() => {
@@ -390,6 +394,7 @@ export class AiAssistantPanelComponent implements OnDestroy {
     if (this.speechRecognition && this.isVoiceListening()) {
       this.speechRecognition.stop();
     }
+    this.recording?.cancel();
     this.stopWebcam();
     if (this.slowTimer) clearTimeout(this.slowTimer);
     if (this.replyTimeout) clearTimeout(this.replyTimeout);
@@ -942,9 +947,78 @@ export class AiAssistantPanelComponent implements OnDestroy {
   }
 
   // -------------------------------------------------------------
-  // DICTADO POR VOZ (WEB SPEECH API)
+  // DICTADO POR VOZ: WHISPER EN EL NAVEGADOR (IA LOCAL)
   // -------------------------------------------------------------
-  toggleVoiceRecognition(): void {
+  /** Pulsar: graba. Pulsar otra vez: transcribe en el propio equipo y añade el texto. */
+  async toggleVoiceRecognition(): Promise<void> {
+    if (this.voiceStatus()) return; // transcribiendo la grabación anterior
+
+    // El micrófono solo está disponible en HTTPS (o localhost)
+    if (!window.isSecureContext) {
+      this.addLocalError(
+        'Dictado por voz: el micrófono solo funciona en páginas HTTPS. Abre la app con https://.',
+      );
+      return;
+    }
+    if (!LocalDictation.isSupported()) {
+      this.toggleBrowserSpeech();
+      return;
+    }
+
+    if (this.recording) {
+      const recording = this.recording;
+      this.recording = null;
+      this.isVoiceListening.set(false);
+      this.voiceStatus.set('Transcribiendo…');
+      try {
+        const text = await recording.stop((s) => this.showDictationStatus(s));
+        if (text) {
+          const current = this.aiPrompt().trim();
+          this.aiPrompt.set(current ? `${current} ${text}` : text);
+        } else {
+          this.addLocalError(
+            'Dictado por voz: no se entendió nada. Habla más cerca del micrófono.',
+          );
+        }
+      } catch (err) {
+        console.error('Dictado local', err);
+        this.addLocalError(
+          'Dictado por voz: no se pudo cargar el modelo de voz local. Revisa tu conexión (solo hace falta la primera vez).',
+        );
+      } finally {
+        this.voiceStatus.set(null);
+      }
+      return;
+    }
+
+    try {
+      this.recording = await LocalDictation.start();
+      this.isVoiceListening.set(true);
+      // Descarga el modelo mientras la persona habla, sin mostrar nada todavía
+      LocalDictation.preload(() => undefined);
+    } catch (err: any) {
+      this.recording = null;
+      this.isVoiceListening.set(false);
+      this.addLocalError(
+        err?.name === 'NotAllowedError'
+          ? 'Dictado por voz: el navegador bloqueó el micrófono. Permítelo en el candado de la barra de direcciones.'
+          : 'Dictado por voz: no se detectó ningún micrófono.',
+      );
+    }
+  }
+
+  private showDictationStatus(status: DictationStatus): void {
+    this.voiceStatus.set(
+      status.phase === 'loading'
+        ? `Descargando modelo de voz${status.progress != null ? ` ${status.progress} %` : '…'}`
+        : 'Transcribiendo…',
+    );
+  }
+
+  // -------------------------------------------------------------
+  // DICTADO POR VOZ DEL NAVEGADOR (WEB SPEECH API): respaldo si no hay dictado local
+  // -------------------------------------------------------------
+  private toggleBrowserSpeech(): void {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
@@ -1008,7 +1082,7 @@ export class AiAssistantPanelComponent implements OnDestroy {
           'service-not-allowed':
             'el navegador no permite el reconocimiento de voz en esta página (¿HTTP en vez de HTTPS?).',
           network:
-            'no se pudo contactar el servicio de voz del navegador (Chrome lo envía a Google). Revisa tu conexión.',
+            'no se pudo contactar el servicio de voz del navegador (Google en Chrome, Microsoft en Edge). Revisa tu conexión.',
           'audio-capture': 'no se detectó ningún micrófono.',
           'language-not-supported': 'el idioma de dictado no está disponible.',
         };
