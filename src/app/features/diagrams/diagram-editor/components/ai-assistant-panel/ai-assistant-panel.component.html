@@ -699,7 +699,7 @@
         </div>
       }
 
-      @if (attachedImageBase64() || isVoiceListening()) {
+      @if (attachedImageBase64() || isVoiceListening() || voiceStatus()) {
         <div class="flex flex-wrap items-center gap-2 px-2 pt-2">
           @if (attachedImageBase64()) {
             <div
@@ -725,6 +725,14 @@
             >
               <span class="h-2 w-2 animate-pulse rounded-full bg-red-400"></span>
               {{ 'ai.listening' | translate }}
+            </span>
+          }
+          @if (voiceStatus(); as status) {
+            <span
+              class="flex items-center gap-2 rounded-lg border border-line bg-bg px-2.5 py-1 text-xs text-fg-muted"
+            >
+              <span class="h-2 w-2 animate-pulse rounded-full bg-fg-muted"></span>
+              {{ status }}
             </span>
           }
         </div>
@@ -828,6 +836,7 @@
         <button
           type="button"
           (click)="toggleVoiceRecognition()"
+          [disabled]="!!voiceStatus()"
           [title]="(isVoiceListening() ? 'ai.stopDictation' : 'ai.dictate') | translate"
           [ngClass]="isVoiceListening() ? '!bg-red-500/15 !text-red-300' : ''"
           class="btn btn-ghost btn-icon !h-9 !w-9 shrink-0 !rounded-xl"
