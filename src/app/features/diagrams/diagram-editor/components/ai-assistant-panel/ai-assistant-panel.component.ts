@@ -980,10 +980,12 @@ export class AiAssistantPanelComponent implements OnDestroy {
             'Dictado por voz: no se entendió nada. Habla más cerca del micrófono.',
           );
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Dictado local', err);
+        // El motivo real ayuda a diagnosticar (red, GPU, audio que el navegador no decodifica…)
+        const detail = String(err?.message || err?.name || err || '').slice(0, 160);
         this.addLocalError(
-          'Dictado por voz: no se pudo cargar el modelo de voz local. Revisa tu conexión (solo hace falta la primera vez).',
+          `Dictado por voz: no se pudo transcribir con el modelo de voz local${detail ? ` (${detail})` : ''}. Si es la primera vez, revisa tu conexión: el modelo se descarga una sola vez.`,
         );
       } finally {
         this.voiceStatus.set(null);
@@ -995,7 +997,7 @@ export class AiAssistantPanelComponent implements OnDestroy {
       this.recording = await LocalDictation.start();
       this.isVoiceListening.set(true);
       // Descarga el modelo mientras la persona habla, sin mostrar nada todavía
-      LocalDictation.preload(() => undefined);
+      LocalDictation.preload();
     } catch (err: any) {
       this.recording = null;
       this.isVoiceListening.set(false);

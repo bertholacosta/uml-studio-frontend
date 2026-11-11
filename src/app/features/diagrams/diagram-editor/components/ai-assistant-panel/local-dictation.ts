@@ -4,7 +4,7 @@
  * (el de Edge falla a menudo con «network») ni de ningún servidor.
  *
  * La librería y el modelo se descargan solo la primera vez que alguien dicta y quedan en la
- * caché del navegador. Usa la GPU (WebGPU) si está disponible y, si no, WebAssembly.
+ * caché del navegador. Usa la GPU (WebGPU) si responde y, si no o si falla, WebAssembly.
  */
 
 // Versión fija de la librería, cargada bajo demanda para no engordar el bundle de la app
@@ -20,36 +20,79 @@ type Transcriber = (
   options: Record<string, unknown>,
 ) => Promise<{ text: string } | { text: string }[]>;
 
-let transcriberPromise: Promise<Transcriber> | null = null;
+/** A quién avisar del progreso: la carga empieza al grabar y el estado se muestra al terminar. */
+let statusListener: (status: DictationStatus) => void = () => undefined;
 
-/** Carga (una sola vez) la librería y el modelo; informa del progreso de la descarga. */
-function loadTranscriber(onStatus: (status: DictationStatus) => void): Promise<Transcriber> {
-  if (!transcriberPromise) {
-    transcriberPromise = (async () => {
-      const url = TRANSFORMERS_URL;
-      const { pipeline } = await import(/* @vite-ignore */ url);
-      const webgpu = typeof navigator !== 'undefined' && 'gpu' in navigator;
-      // Progreso total: media de los archivos del modelo que se están descargando
-      const files = new Map<string, number>();
-      return pipeline('automatic-speech-recognition', MODEL, {
-        device: webgpu ? 'webgpu' : 'wasm',
-        dtype: webgpu ? { encoder_model: 'fp32', decoder_model_merged: 'q4' } : 'q8',
-        progress_callback: (p: { status: string; file?: string; progress?: number }) => {
-          if (p.status === 'progress' && p.file) {
-            files.set(p.file, p.progress ?? 0);
-            const values = [...files.values()];
-            onStatus({
-              phase: 'loading',
-              progress: Math.round(values.reduce((a, b) => a + b, 0) / values.length),
-            });
-          }
-        },
-      }) as Promise<Transcriber>;
-    })();
-    // Si falla (sin red, navegador sin WebAssembly…), el próximo intento vuelve a probar
-    transcriberPromise.catch(() => (transcriberPromise = null));
+type Device = 'webgpu' | 'wasm';
+
+/** ¿La GPU responde de verdad? Edge puede anunciar WebGPU y no dar adaptador (driver bloqueado). */
+async function webgpuUsable(): Promise<boolean> {
+  try {
+    const gpu = (navigator as any).gpu;
+    return !!gpu && !!(await gpu.requestAdapter());
+  } catch {
+    return false;
   }
-  return transcriberPromise;
+}
+
+async function createTranscriber(device: Device): Promise<Transcriber> {
+  const url = TRANSFORMERS_URL;
+  const { pipeline } = await import(/* @vite-ignore */ url);
+  // Progreso total: media de los archivos del modelo que se están descargando
+  const files = new Map<string, number>();
+  return pipeline('automatic-speech-recognition', MODEL, {
+    device,
+    dtype: device === 'webgpu' ? { encoder_model: 'fp32', decoder_model_merged: 'q4' } : 'q8',
+    progress_callback: (p: { status: string; file?: string; progress?: number }) => {
+      if (p.status === 'progress' && p.file) {
+        files.set(p.file, p.progress ?? 0);
+        const values = [...files.values()];
+        statusListener({
+          phase: 'loading',
+          progress: Math.round(values.reduce((a, b) => a + b, 0) / values.length),
+        });
+      }
+    },
+  }) as Promise<Transcriber>;
+}
+
+let loaded: { device: Device; transcriber: Promise<Transcriber> } | null = null;
+
+/**
+ * Carga (una sola vez) la librería y el modelo, en la GPU si responde y si no en la CPU
+ * (WebAssembly). Si la GPU falla al cargar, se reintenta en la CPU. Con `cpuOnly`, descarta
+ * la GPU (p. ej. porque falló al transcribir).
+ */
+function loadTranscriber(cpuOnly = false): {
+  device: Device;
+  transcriber: Promise<Transcriber>;
+} {
+  if (loaded && (!cpuOnly || loaded.device === 'wasm')) return loaded;
+  const attempt = (async () => {
+    if (!cpuOnly && (await webgpuUsable())) {
+      try {
+        const transcriber = await createTranscriber('webgpu');
+        return { device: 'webgpu' as Device, transcriber };
+      } catch (err) {
+        console.warn('Dictado local: WebGPU no disponible, se usa WebAssembly', err);
+      }
+    }
+    return { device: 'wasm' as Device, transcriber: await createTranscriber('wasm') };
+  })();
+  const entry = {
+    device: 'webgpu' as Device,
+    transcriber: attempt.then((r) => {
+      entry.device = r.device;
+      return r.transcriber;
+    }),
+  };
+  if (cpuOnly) entry.device = 'wasm';
+  // Si falla (sin red, navegador sin WebAssembly…), el próximo intento vuelve a probar
+  entry.transcriber.catch(() => {
+    if (loaded === entry) loaded = null;
+  });
+  loaded = entry;
+  return entry;
 }
 
 /** Audio grabado → muestras mono a 16 kHz, el formato que espera Whisper. */
@@ -85,8 +128,8 @@ export class LocalDictation {
    * Empieza a descargar el modelo en segundo plano (mientras la persona habla), para que al
    * terminar de grabar solo quede transcribir.
    */
-  static preload(onStatus: (status: DictationStatus) => void): void {
-    loadTranscriber(onStatus).catch(() => undefined);
+  static preload(): void {
+    loadTranscriber().transcriber.catch(() => undefined);
   }
 
   /** Pide el micrófono y empieza a grabar. */
@@ -110,19 +153,34 @@ export class LocalDictation {
         if (recorder.state !== 'inactive') recorder.stop();
         const blob = await finished;
         if (!blob.size) return '';
-        const [transcriber, audio] = await Promise.all([
-          loadTranscriber(onStatus),
-          toMono16k(blob),
-        ]);
-        onStatus({ phase: 'transcribing' });
-        const output = await transcriber(audio, {
-          language: 'spanish',
-          task: 'transcribe',
-          chunk_length_s: 30,
-          stride_length_s: 5,
-        });
-        const text = Array.isArray(output) ? output.map((o) => o.text).join(' ') : output.text;
-        return text.trim();
+        statusListener = onStatus;
+        try {
+          const audio = await toMono16k(blob);
+          const run = async (entry: ReturnType<typeof loadTranscriber>) => {
+            const transcriber = await entry.transcriber;
+            onStatus({ phase: 'transcribing' });
+            return transcriber(audio, {
+              language: 'spanish',
+              task: 'transcribe',
+              chunk_length_s: 30,
+              stride_length_s: 5,
+            });
+          };
+          const entry = loadTranscriber();
+          let output: Awaited<ReturnType<Transcriber>>;
+          try {
+            output = await run(entry);
+          } catch (err) {
+            // La GPU cargó pero falló al transcribir (pasa en algunos Edge): se repite en la CPU
+            if (entry.device !== 'webgpu') throw err;
+            console.warn('Dictado local: falló en la GPU, se repite en la CPU', err);
+            output = await run(loadTranscriber(true));
+          }
+          const text = Array.isArray(output) ? output.map((o) => o.text).join(' ') : output.text;
+          return text.trim();
+        } finally {
+          statusListener = () => undefined;
+        }
       },
       cancel() {
         if (recorder.state !== 'inactive') recorder.stop();
