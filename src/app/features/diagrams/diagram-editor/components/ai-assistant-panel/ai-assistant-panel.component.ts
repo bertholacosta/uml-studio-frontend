@@ -955,6 +955,14 @@ export class AiAssistantPanelComponent implements OnDestroy {
       return;
     }
 
+    // El micrófono solo está disponible en HTTPS (o localhost)
+    if (!window.isSecureContext) {
+      this.addLocalError(
+        'Dictado por voz: el micrófono solo funciona en páginas HTTPS. Abre la app con https://.',
+      );
+      return;
+    }
+
     if (this.isVoiceListening()) {
       this.speechRecognition?.stop();
       this.isVoiceListening.set(false);
@@ -963,25 +971,52 @@ export class AiAssistantPanelComponent implements OnDestroy {
 
     try {
       this.speechRecognition = new SpeechRecognition();
-      this.speechRecognition.lang = 'es-ES';
-      this.speechRecognition.continuous = false;
-      this.speechRecognition.interimResults = false;
+      this.speechRecognition.lang = 'es-419'; // español latinoamericano
+      // Sigue escuchando entre pausas y muestra lo que va entendiendo; se detiene al pulsar de nuevo
+      this.speechRecognition.continuous = true;
+      this.speechRecognition.interimResults = true;
+      this.speechRecognition.maxAlternatives = 1;
+
+      const baseText = this.aiPrompt().trim();
+      let finalText = '';
 
       this.speechRecognition.onstart = () => {
         this.isVoiceListening.set(true);
       };
 
       this.speechRecognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        if (transcript) {
-          const current = this.aiPrompt().trim();
-          this.aiPrompt.set(current ? `${current} ${transcript}` : transcript);
+        let interim = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const piece = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalText += `${piece} `;
+          } else {
+            interim += piece;
+          }
         }
-        this.isVoiceListening.set(false);
+        const spoken = `${finalText}${interim}`.trim();
+        if (spoken) {
+          this.aiPrompt.set(baseText ? `${baseText} ${spoken}` : spoken);
+        }
       };
 
-      this.speechRecognition.onerror = () => {
+      this.speechRecognition.onerror = (event: any) => {
         this.isVoiceListening.set(false);
+        const reasons: Record<string, string> = {
+          'not-allowed':
+            'el navegador bloqueó el micrófono. Permítelo en el candado de la barra de direcciones.',
+          'service-not-allowed':
+            'el navegador no permite el reconocimiento de voz en esta página (¿HTTP en vez de HTTPS?).',
+          network:
+            'no se pudo contactar el servicio de voz del navegador (Chrome lo envía a Google). Revisa tu conexión.',
+          'audio-capture': 'no se detectó ningún micrófono.',
+          'language-not-supported': 'el idioma de dictado no está disponible.',
+        };
+        const reason = reasons[event?.error];
+        // «no-speech» y «aborted» son normales (silencio o parada manual): sin aviso
+        if (reason) {
+          this.addLocalError(`Dictado por voz: ${reason}`);
+        }
       };
 
       this.speechRecognition.onend = () => {
