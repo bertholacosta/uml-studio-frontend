@@ -147,6 +147,13 @@ export interface TrazoSettingsValues {
   model: string;
 }
 
+/** Archivo exportado del chat, listo para descargar. */
+export interface ExportedChat {
+  filename: string;
+  mimeType: string;
+  content: string;
+}
+
 /** Configuración de Trazo del proyecto (compartida por todo el equipo). */
 export interface TrazoSettings extends TrazoSettingsValues {
   /** Modelos que ofrece el servidor; el primero es el predeterminado. */
@@ -175,6 +182,23 @@ export class AiAssistantService {
     return this.http
       .post<any>(`${this.apiUrl}/chat/projects/${projectId}/${channel}/reset`, {})
       .pipe(map((res) => (res && res.data ? res.data : res) as ChatConversation));
+  }
+
+  /**
+   * Historial completo del canal (también las conversaciones archivadas) como archivo:
+   * Markdown para leer o JSON con todos los datos. Las fechas van en la zona horaria local.
+   */
+  exportConversation(
+    projectId: string,
+    channel: ChatChannel,
+    format: 'md' | 'json',
+  ): Observable<ExportedChat> {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    return this.http
+      .get<any>(`${this.apiUrl}/chat/projects/${projectId}/${channel}/export`, {
+        params: { format, timeZone },
+      })
+      .pipe(map((res) => (res && res.data ? res.data : res) as ExportedChat));
   }
 
   sendMessage(projectId: string, message: SendChatMessage): Observable<ChatAccepted> {

@@ -85,6 +85,49 @@
                 <ng-icon name="heroAdjustmentsHorizontal" class="text-sm"></ng-icon>
               </button>
             }
+            <!-- Exportar el historial del canal (también las conversaciones archivadas) -->
+            @if (projectId()) {
+              <div class="relative">
+                <button
+                  type="button"
+                  (click)="exportMenuOpen.set(!exportMenuOpen())"
+                  [disabled]="isExporting()"
+                  [title]="'chat.exportChat' | translate"
+                  [attr.aria-expanded]="exportMenuOpen()"
+                  class="btn btn-ghost btn-icon !h-7 !w-7"
+                  data-testid="chat-export"
+                >
+                  <ng-icon
+                    name="heroArrowDownTray"
+                    class="text-sm"
+                    [class.animate-pulse]="isExporting()"
+                  ></ng-icon>
+                </button>
+                @if (exportMenuOpen()) {
+                  <div
+                    class="absolute right-0 top-8 z-50 flex min-w-52 flex-col gap-0.5 rounded-lg border border-line bg-bg p-1 shadow-lg"
+                    role="menu"
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      (click)="exportChat('md')"
+                      class="btn btn-ghost !h-8 w-full !justify-start !px-2 text-xs"
+                    >
+                      {{ 'chat.exportMarkdown' | translate }}
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      (click)="exportChat('json')"
+                      class="btn btn-ghost !h-8 w-full !justify-start !px-2 text-xs"
+                    >
+                      {{ 'chat.exportJson' | translate }}
+                    </button>
+                  </div>
+                }
+              </div>
+            }
             @if (chatMessages().length && (activeChannel() === 'direct' || isAdmin())) {
               <button
                 type="button"

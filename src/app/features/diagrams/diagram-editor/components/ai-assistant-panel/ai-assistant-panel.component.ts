@@ -39,6 +39,7 @@ import {
   heroEye,
   heroEyeSlash,
   heroArrowUturnLeft,
+  heroArrowDownTray,
 } from '@ng-icons/heroicons/outline';
 import { AuthService } from '../../../../../core/services/auth.service';
 import {
@@ -114,6 +115,7 @@ export const diagramTag = (name: string) => `#${name.trim().replace(/\s+/g, '-')
   imports: [CommonModule, FormsModule, NgIconComponent, TranslatePipe, TrazoSettingsModalComponent],
   providers: [
     provideIcons({
+      heroArrowDownTray,
       heroAdjustmentsHorizontal,
       heroEye,
       heroEyeSlash,
@@ -617,6 +619,34 @@ export class AiAssistantPanelComponent implements OnDestroy {
     const next = this.dock() === 'side' ? 'bottom' : 'side';
     if (next === 'bottom') this.isExpanded.set(true);
     this.dockChange.emit(next);
+  }
+
+  /** Menú de exportación (Markdown o JSON) abierto. */
+  readonly exportMenuOpen = signal(false);
+  readonly isExporting = signal(false);
+
+  /** Descarga todo el historial del canal activo (también las conversaciones archivadas). */
+  exportChat(format: 'md' | 'json'): void {
+    const projectId = this.projectId();
+    this.exportMenuOpen.set(false);
+    if (!projectId || this.isExporting()) return;
+    this.isExporting.set(true);
+    this.aiService.exportConversation(projectId, this.activeChannel(), format).subscribe({
+      next: (file) => {
+        const blob = new Blob([file.content], { type: `${file.mimeType};charset=utf-8` });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = file.filename;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        this.isExporting.set(false);
+      },
+      error: () => {
+        this.isExporting.set(false);
+        this.addLocalError(this.i18n.t('chat.exportError'));
+      },
+    });
   }
 
   /** Empieza una conversación nueva (la anterior queda guardada en el historial). */
