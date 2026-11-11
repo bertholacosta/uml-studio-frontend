@@ -448,6 +448,10 @@ export const en = {
     openThisDiagram: 'Open this diagram',
     resetTeam: 'New team conversation (admin)',
     resetDirect: 'New private conversation',
+    exportChat: 'Export this chat history',
+    exportMarkdown: 'Markdown (.md), to read',
+    exportJson: 'JSON (.json), full data',
+    exportError: 'Could not export the chat. Try again.',
     resetTeamConfirm:
       'A new conversation will start in the team channel. The current one stays in the history. Continue?',
     resetDirectConfirm:

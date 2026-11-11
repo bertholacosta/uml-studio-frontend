@@ -449,6 +449,10 @@ export const es = {
     openThisDiagram: 'Abrir este diagrama',
     resetTeam: 'Nueva conversación del equipo (administrador)',
     resetDirect: 'Nueva conversación privada',
+    exportChat: 'Exportar el historial de este chat',
+    exportMarkdown: 'Markdown (.md), para leer',
+    exportJson: 'JSON (.json), datos completos',
+    exportError: 'No se pudo exportar el chat. Inténtalo de nuevo.',
     resetTeamConfirm:
       'Se empezará una conversación nueva en el canal del equipo. La actual queda guardada en el historial. ¿Continuar?',
     resetDirectConfirm:
