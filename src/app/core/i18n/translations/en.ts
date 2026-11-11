@@ -213,7 +213,7 @@ export const en = {
     relationHint:
       'Pick a relationship, then click the source class and the target class. You can also drag from a dot on a class.',
     relationStepSource: 'Click the source class',
-    relationStepTarget: 'Now click the target class',
+    relationStepTarget: 'Now click the target class (the same one for a self-association)',
     shortcutsTitle: 'Shortcuts',
     shortcuts: {
       undo: 'Undo',
@@ -307,10 +307,26 @@ export const en = {
         'Methods are part of the UML diagram and are exported to XMI, but they are not generated in the code.',
       dragToReorder: 'Drag to reorder',
     },
+    memberVisibility: {
+      label: 'Visibility',
+      public: 'public',
+      private: 'private',
+      protected: 'protected',
+      package: 'package',
+    },
+    navigability: {
+      label: 'Navigability',
+      unspecified: 'Unspecified: the line has no arrowheads.',
+      toTarget: 'Navigable towards the target.',
+      toSource: 'Navigable towards the source.',
+      both: 'Navigable in both directions.',
+    },
     relationPanel: {
       title: 'Relationship',
       source: 'Source',
       target: 'Target',
+      role: 'Role name',
+      rolePlaceholder: 'role (optional)',
       multiplicityNote:
         'Multiplicities drive the generated code: 1 and * on each end produce @OneToMany, @ManyToOne, @OneToOne or @ManyToMany.',
       assocClassHint:

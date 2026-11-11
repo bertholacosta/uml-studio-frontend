@@ -214,7 +214,7 @@ export const es = {
     relationHint:
       'Elige una relación y haz clic en la clase origen y luego en la destino. También puedes arrastrar desde un punto de una clase.',
     relationStepSource: 'Haz clic en la clase origen',
-    relationStepTarget: 'Ahora haz clic en la clase destino',
+    relationStepTarget: 'Ahora haz clic en la clase destino (la misma para una autoasociación)',
     shortcutsTitle: 'Atajos',
     shortcuts: {
       undo: 'Deshacer',
@@ -308,10 +308,26 @@ export const es = {
         'Los métodos forman parte del diagrama UML y se exportan en XMI, pero no se generan en el código.',
       dragToReorder: 'Arrastra para reordenar',
     },
+    memberVisibility: {
+      label: 'Visibilidad',
+      public: 'público',
+      private: 'privado',
+      protected: 'protegido',
+      package: 'de paquete',
+    },
+    navigability: {
+      label: 'Navegabilidad',
+      unspecified: 'Sin indicar: la línea no lleva flechas.',
+      toTarget: 'Navegable hacia el destino.',
+      toSource: 'Navegable hacia el origen.',
+      both: 'Navegable en ambos sentidos.',
+    },
     relationPanel: {
       title: 'Relación',
       source: 'Origen',
       target: 'Destino',
+      role: 'Nombre de rol',
+      rolePlaceholder: 'rol (opcional)',
       multiplicityNote:
         'Las multiplicidades deciden el código generado: 1 y * en cada extremo producen @OneToMany, @ManyToOne, @OneToOne o @ManyToMany.',
       assocClassHint:

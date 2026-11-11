@@ -8,7 +8,16 @@ import {
   heroSquare2Stack,
   heroInformationCircle,
 } from '@ng-icons/heroicons/outline';
-import { UmlConnection, UmlRelationshipType } from '../../../../../core/models/diagram.model';
+import {
+  UmlConnection,
+  UmlNavigability,
+  UmlRelationshipType,
+} from '../../../../../core/models/diagram.model';
+import {
+  NAVIGABILITY_OPTIONS,
+  allowsSelfRelation,
+  hasAssociationEnds,
+} from '../../../../../core/utils/uml-notation';
 import { TranslatePipe } from '../../../../../core/i18n';
 import { RelationIconComponent } from '../relation-icon/relation-icon.component';
 
@@ -59,6 +68,28 @@ export class RelationEditPanelComponent {
   ];
 
   readonly quickMultiplicities = ['1', '0..1', '*', '1..*'];
+  readonly navigabilityOptions = NAVIGABILITY_OPTIONS;
+
+  /** La relación une una clase consigo misma. */
+  isSelf(): boolean {
+    const c = this.connection();
+    return !!c.sourceNodeId && c.sourceNodeId === c.targetNodeId;
+  }
+
+  /** Rol y navegabilidad solo existen en los extremos de una asociación. */
+  hasEnds(): boolean {
+    return hasAssociationEnds(this.connection().type);
+  }
+
+  isTypeDisabled(type: UmlRelationshipType): boolean {
+    if (this.hasAssociationClass() && type !== 'association') return true;
+    return this.isSelf() && !allowsSelfRelation(type);
+  }
+
+  navigabilityHint(): string {
+    const nav = this.connection().navigability || 'unspecified';
+    return NAVIGABILITY_OPTIONS.find((o) => o.id === nav)!.labelKey;
+  }
 
   hasAssociationClass(): boolean {
     return !!this.connection().assocAnchorNodeId;
@@ -69,12 +100,21 @@ export class RelationEditPanelComponent {
   }
 
   setType(type: UmlRelationshipType): void {
-    if (this.hasAssociationClass() && type !== 'association') return;
+    if (this.isTypeDisabled(type)) return;
     this.emit({ type });
   }
 
   setName(name: string): void {
     this.emit({ name: name || undefined });
+  }
+
+  setRole(end: 'source' | 'target', value: string): void {
+    const role = value || undefined;
+    this.emit(end === 'source' ? { sourceRole: role } : { targetRole: role });
+  }
+
+  setNavigability(navigability: UmlNavigability): void {
+    this.emit({ navigability });
   }
 
   setMultiplicity(end: 'source' | 'target', value: string): void {

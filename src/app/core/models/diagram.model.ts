@@ -7,9 +7,17 @@ export type UmlRelationshipType =
   | 'dependency'
   | 'association_class';
 
+/** Visibilidad UML: + público, − privado, # protegido, ~ de paquete. */
+export type UmlVisibility = 'public' | 'private' | 'protected' | 'package';
+
+/** Hacia qué extremo se puede navegar una asociación (punta de flecha abierta). */
+export type UmlNavigability = 'unspecified' | 'to_target' | 'to_source' | 'both';
+
 export interface UmlAttribute {
   name: string;
   type: string;
+  /** Si falta, privado. */
+  visibility?: UmlVisibility;
   orderIndex?: number;
 }
 
@@ -17,6 +25,8 @@ export interface UmlMethod {
   name: string;
   parameters: string;
   returnType: string;
+  /** Si falta, público. */
+  visibility?: UmlVisibility;
   orderIndex?: number;
 }
 
@@ -44,6 +54,10 @@ export interface UmlConnection {
   name?: string;
   sourceMultiplicity?: string;
   targetMultiplicity?: string;
+  /** Nombre de rol de cada extremo. */
+  sourceRole?: string;
+  targetRole?: string;
+  navigability?: UmlNavigability;
   assocAnchorNodeId?: string;
 }
 
@@ -74,6 +88,9 @@ export interface DiagramDto {
     name?: string | null;
     sourceMultiplicity?: string;
     targetMultiplicity?: string;
+    sourceRole?: string | null;
+    targetRole?: string | null;
+    navigability?: string;
     assocAnchorNodeId?: string | null;
   }[];
   updatedAt: string;
@@ -103,6 +120,9 @@ export interface SaveDiagramAstRequest {
     name?: string | null;
     sourceMultiplicity?: string;
     targetMultiplicity?: string;
+    sourceRole?: string | null;
+    targetRole?: string | null;
+    navigability?: string;
     assocAnchorNodeId?: string | null;
   }[];
 }
