@@ -458,6 +458,45 @@ f-flow circle.f-connection-drag-handle {
   font-style: italic;
 }
 
+/* El nombre de rol crece desde su punto de anclaje hacia fuera, sin pisar la línea ni la clase */
+.uml-role-text {
+  display: inline-block;
+}
+.uml-role-badge[data-extend='right'] .uml-role-text {
+  transform: translateX(calc(50% + 3px));
+}
+.uml-role-badge[data-extend='left'] .uml-role-text {
+  transform: translateX(calc(-50% - 3px));
+}
+
+/* Selector de visibilidad del panel de clase: cerrado solo muestra el símbolo */
+.uml-visibility-select {
+  width: 26px;
+  height: 28px;
+  flex-shrink: 0;
+  appearance: none;
+  overflow: hidden;
+  padding: 0 0 0 8px;
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-fg);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: clip;
+  cursor: pointer;
+}
+.uml-visibility-select:hover,
+.uml-visibility-select:focus {
+  border-color: var(--color-accent);
+  outline: none;
+}
+.uml-visibility-select option {
+  background: var(--color-surface);
+  color: var(--color-fg);
+}
+
 .uml-multiplicity-badge:hover,
 .uml-relation-name-badge:hover {
   color: var(--uml-highlight);
@@ -697,6 +736,27 @@ f-flow.f-connections-dragging .f-node.uml-class-node .uml-port {
 
 f-flow .uml-port:hover {
   transform: translate(-50%, -50%) scale(1.3) !important;
+}
+
+/* Puntos del lazo de una autoasociación: borde superior y borde derecho, junto a la esquina */
+f-flow .uml-loop-connector {
+  position: absolute !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  pointer-events: none !important;
+}
+f-flow .uml-loop-a {
+  left: calc(100% - 64px);
+  top: 0;
+}
+f-flow .uml-loop-b {
+  left: 100%;
+  top: 40px;
 }
 
 /* Conector que ocupa toda la caja: las líneas se trazan de borde a borde (no recibe el ratón) */

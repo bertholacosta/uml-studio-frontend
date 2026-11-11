@@ -40,7 +40,7 @@
           <button
             type="button"
             (click)="setType(rel.id)"
-            [disabled]="hasAssociationClass() && rel.id !== 'association'"
+            [disabled]="isTypeDisabled(rel.id)"
             [class.uml-option-active]="connection().type === rel.id"
             class="uml-option"
           >
@@ -92,6 +92,18 @@
               class="input input-sm ml-auto !h-7 w-[64px] text-center font-mono"
             />
           </div>
+          @if (hasEnds()) {
+            <input
+              type="text"
+              maxlength="100"
+              [value]="(end === 'source' ? connection().sourceRole : connection().targetRole) || ''"
+              (input)="setRole($any(end), $any($event.target).value)"
+              [placeholder]="'editor.relationPanel.rolePlaceholder' | translate"
+              [attr.aria-label]="'editor.relationPanel.role' | translate"
+              [attr.data-role-input]="end"
+              class="input input-sm mt-1.5 !h-7 font-mono"
+            />
+          }
         </div>
       }
       <p class="flex items-start gap-1.5 text-[11px] leading-snug text-fg-subtle">
@@ -99,6 +111,41 @@
         <span>{{ 'editor.relationPanel.multiplicityNote' | translate }}</span>
       </p>
     </section>
+
+    <!-- Navegabilidad -->
+    @if (hasEnds()) {
+      <section>
+        <span class="section-title mb-1.5 block">{{
+          'editor.navigability.label' | translate
+        }}</span>
+        <div class="grid grid-cols-4 gap-1">
+          @for (nav of navigabilityOptions; track nav.id) {
+            <button
+              type="button"
+              (click)="setNavigability(nav.id)"
+              [class.uml-option-active]="(connection().navigability || 'unspecified') === nav.id"
+              [title]="nav.labelKey | translate"
+              [attr.aria-label]="nav.labelKey | translate"
+              [attr.data-navigability]="nav.id"
+              class="uml-option justify-center !px-1"
+            >
+              <svg width="34" height="12" viewBox="0 0 34 12" class="uml-icon-line">
+                <line x1="3" y1="6" x2="31" y2="6" />
+                @if (nav.id === 'to_target' || nav.id === 'both') {
+                  <polyline points="25,2 31,6 25,10" />
+                }
+                @if (nav.id === 'to_source' || nav.id === 'both') {
+                  <polyline points="9,2 3,6 9,10" />
+                }
+              </svg>
+            </button>
+          }
+        </div>
+        <p class="mt-1.5 text-[11px] leading-snug text-fg-subtle">
+          {{ navigabilityHint() | translate }}
+        </p>
+      </section>
+    }
 
     <!-- Nombre -->
     <div>
@@ -113,7 +160,7 @@
     </div>
 
     <!-- Clase de asociación -->
-    @if (connection().type === 'association') {
+    @if (connection().type === 'association' && !isSelf()) {
       <section class="rounded-lg border border-dashed border-line-strong p-2.5">
         <p class="mb-2 text-[12px] leading-snug text-fg-muted">
           {{

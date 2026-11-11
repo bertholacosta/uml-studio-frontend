@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { UmlClassNode, UmlConnection } from '../models/diagram.model';
+import { visibilitySymbol } from '../utils/uml-notation';
 
 @Injectable({
   providedIn: 'root',
@@ -476,7 +477,11 @@ export class BmpExportService {
     const attributes = node.attributes || [];
     for (const attr of attributes) {
       ctx.fillStyle = '#241C18';
-      ctx.fillText(`- ${attr.name}: ${attr.type}`, x + 10, currentY);
+      ctx.fillText(
+        `${visibilitySymbol(attr.visibility, 'private')} ${attr.name}: ${attr.type}`,
+        x + 10,
+        currentY,
+      );
       currentY += 18;
     }
 
@@ -495,7 +500,11 @@ export class BmpExportService {
         ctx.fillStyle = '#241C18';
         const params = m.parameters ? `(${m.parameters})` : '()';
         const ret = m.returnType ? `: ${m.returnType}` : ': void';
-        ctx.fillText(`+ ${m.name}${params}${ret}`, x + 10, currentY);
+        ctx.fillText(
+          `${visibilitySymbol(m.visibility, 'public')} ${m.name}${params}${ret}`,
+          x + 10,
+          currentY,
+        );
         currentY += 18;
       }
     }

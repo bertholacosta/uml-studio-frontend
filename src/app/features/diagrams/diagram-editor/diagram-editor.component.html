@@ -87,8 +87,11 @@
                 [fConnectionId]="conn.id"
                 [fSourceId]="getRenderedEndpoint(conn, 'source')"
                 [fTargetId]="getRenderedEndpoint(conn, 'target')"
-                [fType]="'straight'"
-                [fBehavior]="'floating'"
+                [fType]="isSelfConn(conn) ? 'segment' : 'straight'"
+                [fBehavior]="isSelfConn(conn) ? 'fixed' : 'floating'"
+                [fSourceSide]="isSelfConn(conn) ? 'top' : 'default'"
+                [fTargetSide]="isSelfConn(conn) ? 'right' : 'default'"
+                [fOffset]="isSelfConn(conn) ? 44 : 12"
                 [fRadius]="0"
                 [fSelectionDisabled]="conn.type === 'association_class'"
                 (dblclick)="openRelationPanel(conn, $event)"
@@ -185,6 +188,36 @@
                   </svg>
                 }
 
+                <!-- Navegabilidad: punta de flecha abierta en el extremo hacia el que se navega -->
+                @if (hasArrow(conn, 'target')) {
+                  <svg
+                    fMarker
+                    [width]="22"
+                    [height]="22"
+                    [refX]="20"
+                    [refY]="11"
+                    viewBox="0 0 22 22"
+                    markerUnits="userSpaceOnUse"
+                    type="end-all-states"
+                  >
+                    <polyline points="4,3 20,11 4,19" class="uml-marker-open" />
+                  </svg>
+                }
+                @if (hasArrow(conn, 'source')) {
+                  <svg
+                    fMarker
+                    [width]="22"
+                    [height]="22"
+                    [refX]="2"
+                    [refY]="11"
+                    viewBox="0 0 22 22"
+                    markerUnits="userSpaceOnUse"
+                    type="start-all-states"
+                  >
+                    <polyline points="18,3 2,11 18,19" class="uml-marker-open" />
+                  </svg>
+                }
+
                 <!-- Multiplicidades junto a cada extremo y nombre en el centro -->
                 @if (conn.sourceMultiplicity) {
                   <div
@@ -195,6 +228,20 @@
                     class="uml-multiplicity-badge"
                   >
                     {{ conn.sourceMultiplicity }}
+                  </div>
+                }
+
+                <!-- El rol va al otro lado de la línea, frente a la multiplicidad -->
+                @if (conn.sourceRole && conn.type !== 'association_class') {
+                  <div
+                    fConnectionContent
+                    [position]="0.1"
+                    [offset]="13"
+                    (dblclick)="openRelationPanel(conn, $event)"
+                    class="uml-multiplicity-badge uml-role-badge"
+                    [attr.data-extend]="roleExtends(conn)"
+                  >
+                    <span class="uml-role-text">{{ conn.sourceRole }}</span>
                   </div>
                 }
 
@@ -214,11 +261,24 @@
                   <div
                     fConnectionContent
                     [position]="0.9"
-                    [offset]="-12"
+                    [offset]="isSelfConn(conn) ? 12 : -12"
                     (dblclick)="openRelationPanel(conn, $event)"
                     class="uml-multiplicity-badge"
                   >
                     {{ conn.targetMultiplicity }}
+                  </div>
+                }
+
+                @if (conn.targetRole && conn.type !== 'association_class') {
+                  <div
+                    fConnectionContent
+                    [position]="0.9"
+                    [offset]="isSelfConn(conn) ? -13 : 13"
+                    (dblclick)="openRelationPanel(conn, $event)"
+                    class="uml-multiplicity-badge uml-role-badge"
+                    [attr.data-extend]="roleExtends(conn, true)"
+                  >
+                    <span class="uml-role-text">{{ conn.targetRole }}</span>
                   </div>
                 }
               </f-connection>
@@ -344,6 +404,17 @@
                     class="uml-box-connector"
                   ></div>
 
+                  <!-- PUNTOS DEL LAZO: una autoasociación sale por arriba y vuelve por la derecha -->
+                  @for (point of loopPoints; track point) {
+                    <div
+                      fConnector
+                      fConnectorType="source-target"
+                      [fConnectorId]="node.id + '__loop_' + point"
+                      [fConnectorDisabled]="true"
+                      [class]="'uml-loop-connector uml-loop-' + point"
+                    ></div>
+                  }
+
                   <!-- CAJA UML: NOMBRE / ATRIBUTOS / MÉTODOS
                        (el ancho va aquí y no en el fNode: Foblex reescribe el atributo style del nodo) -->
                   <div
@@ -377,7 +448,9 @@
                             (previewMemberKind(node.id, 'attr', attr.name) || 'same')
                           "
                         >
-                          <span>− {{ attr.name || '…' }}: {{ attr.type }}</span>
+                          <span
+                            >{{ attrSymbol(attr) }} {{ attr.name || '…' }}: {{ attr.type }}</span
+                          >
                         </div>
                       }
                     </div>
@@ -395,7 +468,7 @@
                           "
                         >
                           <span
-                            >+ {{ m.name || '…' }}({{ m.parameters || '' }}):
+                            >{{ methodSymbol(m) }} {{ m.name || '…' }}({{ m.parameters || '' }}):
                             {{ m.returnType || 'void' }}</span
                           >
                         </div>

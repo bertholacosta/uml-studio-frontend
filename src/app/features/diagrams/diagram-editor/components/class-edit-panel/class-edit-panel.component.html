@@ -1,6 +1,6 @@
 <div
   data-tour="node-modal"
-  class="uml-floating-panel absolute z-50 flex w-[360px] flex-col"
+  class="uml-floating-panel absolute z-50 flex w-[378px] flex-col"
   [style.left.px]="left()"
   [style.top.px]="top()"
   (click)="$event.stopPropagation()"
@@ -65,9 +65,19 @@
             >
               <ng-icon name="heroBars2" class="text-xs"></ng-icon>
             </span>
-            <span class="w-2.5 shrink-0 text-center font-mono text-xs text-fg-subtle select-none"
-              >−</span
+            <select
+              [value]="attr.visibility || 'private'"
+              (change)="updateAttribute(i, { visibility: $any($event.target).value })"
+              [title]="'editor.memberVisibility.label' | translate"
+              [attr.aria-label]="'editor.memberVisibility.label' | translate"
+              class="uml-visibility-select"
             >
+              @for (v of visibilityOptions; track v.id) {
+                <option [value]="v.id" [selected]="v.id === (attr.visibility || 'private')">
+                  {{ v.symbol }} {{ v.labelKey | translate }}
+                </option>
+              }
+            </select>
             <input
               [id]="'attr-name-' + i"
               type="text"
@@ -130,9 +140,19 @@
             >
               <ng-icon name="heroBars2" class="text-xs"></ng-icon>
             </span>
-            <span class="w-2.5 shrink-0 text-center font-mono text-xs text-fg-subtle select-none"
-              >+</span
+            <select
+              [value]="m.visibility || 'public'"
+              (change)="updateMethod(i, { visibility: $any($event.target).value })"
+              [title]="'editor.memberVisibility.label' | translate"
+              [attr.aria-label]="'editor.memberVisibility.label' | translate"
+              class="uml-visibility-select"
             >
+              @for (v of visibilityOptions; track v.id) {
+                <option [value]="v.id" [selected]="v.id === (m.visibility || 'public')">
+                  {{ v.symbol }} {{ v.labelKey | translate }}
+                </option>
+              }
+            </select>
             <input
               [id]="'method-name-' + i"
               type="text"

@@ -50,12 +50,24 @@ import { CollaborationService, NodeLock } from '../../../core/services/collabora
 import { AiAssistantService } from '../../../core/services/ai-assistant.service';
 import { XmiService } from '../../../core/services/xmi.service';
 import { withFreshIds } from '../../../core/utils/fresh-ids';
+import {
+  DEFAULT_ATTRIBUTE_VISIBILITY,
+  DEFAULT_METHOD_VISIBILITY,
+  allowsSelfRelation,
+  hasNavigationArrow,
+  normalizeNavigability,
+  normalizeVisibility,
+  reverseNavigability,
+  visibilitySymbol,
+} from '../../../core/utils/uml-notation';
 import { BmpExportService } from '../../../core/services/bmp-export.service';
 import { TourService } from '../../../core/tour/tour.service';
 import {
   UmlRelationshipType,
+  UmlAttribute,
   UmlClassNode,
   UmlConnection,
+  UmlMethod,
   SaveDiagramAstRequest,
 } from '../../../core/models/diagram.model';
 
@@ -103,7 +115,8 @@ const CLASS_LAYOUT = {
 const ISLAND_INSET = { left: 76, top: 72 };
 
 // Sufijo del conector dentro del id: lado (_top…) o la caja completa (__box) con la que se dibujan las líneas
-const SIDE_SUFFIX = /(?:_(?:top|bottom|left|right)|__box)$/;
+// o los dos puntos del lazo de una autoasociación (__loop_a, __loop_b)
+const SIDE_SUFFIX = /(?:_(?:top|bottom|left|right)|__box|__loop_[ab])$/;
 
 /** Estado del guardado automático que muestra la barra superior. */
 export type SaveState = 'saved' | 'pending' | 'saving' | 'error';
@@ -282,6 +295,8 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
   // Lienzo: cuadrícula, transformación y selección
   readonly gridSize = 20;
   readonly connectorSides: ConnectorSide[] = ['top', 'right', 'bottom', 'left'];
+  /** Puntos fijos de la esquina superior derecha entre los que se dibuja una autoasociación. */
+  readonly loopPoints = ['a', 'b'] as const;
   readonly canvasTransform = signal<{ x: number; y: number; scale: number }>({
     x: 0,
     y: 0,
@@ -370,7 +385,7 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
     if (!node) return { left: 0, top: 0 };
     const t = this.canvasTransform();
     const { width: cw, height: ch } = this.getContainerSize();
-    const panelW = 360;
+    const panelW = 378;
     const gap = 14;
     const nodeW = this.getNodeWidth(node);
     let left = (node.position.x + nodeW) * t.scale + t.x + gap;
@@ -589,15 +604,8 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
             height: n.height || undefined,
             isAnchor: n.isAnchor,
             assocMainConnId: n.assocMainConnId || undefined,
-            attributes: (n.attributes || []).map((a) => ({
-              name: a.name,
-              type: this.normalizeDataType(a.type),
-            })),
-            methods: (n.methods || []).map((m) => ({
-              name: m.name,
-              parameters: m.parameters,
-              returnType: this.normalizeReturnType(m.returnType),
-            })),
+            attributes: (n.attributes || []).map((a) => this.cleanAttribute(a)),
+            methods: (n.methods || []).map((m) => this.cleanMethod(m)),
           })),
         );
       }
@@ -614,6 +622,9 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
             name: c.name || undefined,
             sourceMultiplicity: c.sourceMultiplicity || '',
             targetMultiplicity: c.targetMultiplicity || '',
+            sourceRole: c.sourceRole || undefined,
+            targetRole: c.targetRole || undefined,
+            navigability: normalizeNavigability(c.navigability),
             assocAnchorNodeId: c.assocAnchorNodeId || undefined,
           })),
         );
@@ -631,6 +642,33 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
         this.resetHistory(true);
       }, 50);
     });
+  }
+
+  /** Atributo con su tipo y visibilidad normalizados (de la API, de Trazo o de un archivo). */
+  private cleanAttribute(a: any): UmlAttribute {
+    return {
+      name: a.name,
+      type: this.normalizeDataType(a.type),
+      visibility: normalizeVisibility(a.visibility, DEFAULT_ATTRIBUTE_VISIBILITY),
+    };
+  }
+
+  private cleanMethod(m: any): UmlMethod {
+    return {
+      name: m.name,
+      parameters: m.parameters || '',
+      returnType: this.normalizeReturnType(m.returnType),
+      visibility: normalizeVisibility(m.visibility, DEFAULT_METHOD_VISIBILITY),
+    };
+  }
+
+  /** Símbolo UML de la visibilidad: + público, − privado, # protegido, ~ de paquete. */
+  attrSymbol(a: UmlAttribute): string {
+    return visibilitySymbol(a.visibility, DEFAULT_ATTRIBUTE_VISIBILITY);
+  }
+
+  methodSymbol(m: UmlMethod): string {
+    return visibilitySymbol(m.visibility, DEFAULT_METHOD_VISIBILITY);
   }
 
   normalizeDataType(type: string): string {
@@ -883,8 +921,12 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
         height: n.isAnchor ? 0 : this.getNodeHeight(n),
         isAnchor: n.isAnchor,
         assocMainConnId: n.assocMainConnId,
-        attributes: n.attributes.filter((a) => a.name.trim()),
-        methods: n.methods.filter((m) => m.name.trim()),
+        attributes: n.attributes
+          .filter((a) => a.name.trim())
+          .map((a, orderIndex) => ({ ...this.cleanAttribute(a), orderIndex })),
+        methods: n.methods
+          .filter((m) => m.name.trim())
+          .map((m, orderIndex) => ({ ...this.cleanMethod(m), orderIndex })),
       })),
       connections: this.canvasConnections().map((c) => ({
         id: c.id,
@@ -896,6 +938,9 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
         name: c.name || null,
         sourceMultiplicity: c.sourceMultiplicity || '',
         targetMultiplicity: c.targetMultiplicity || '',
+        sourceRole: c.sourceRole?.trim() || null,
+        targetRole: c.targetRole?.trim() || null,
+        navigability: normalizeNavigability(c.navigability),
         assocAnchorNodeId: c.assocAnchorNodeId || null,
       })),
     };
@@ -1156,9 +1201,14 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
     const row = `13.5px ${fonts.sans}`;
     const widths = [
       this.textWidth(node.name || '', `700 15px ${fonts.sans}`),
-      ...(node.attributes || []).map((a) => this.textWidth(`− ${a.name || '…'}: ${a.type}`, row)),
+      ...(node.attributes || []).map((a) =>
+        this.textWidth(`${this.attrSymbol(a)} ${a.name || '…'}: ${a.type}`, row),
+      ),
       ...(node.methods || []).map((m) =>
-        this.textWidth(`+ ${m.name || '…'}(${m.parameters || ''}): ${m.returnType || 'void'}`, row),
+        this.textWidth(
+          `${this.methodSymbol(m)} ${m.name || '…'}(${m.parameters || ''}): ${m.returnType || 'void'}`,
+          row,
+        ),
       ),
     ];
     const content = Math.ceil(
@@ -1298,7 +1348,10 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
           const targetNode = nodeMap.get(baseTargetId);
 
           if (sourceNode && targetNode && !sourceNode.isAnchor && !targetNode.isAnchor) {
-            const optimal = this.getOptimalConnectorId(sourceNode, targetNode);
+            const optimal =
+              sourceNode.id === targetNode.id
+                ? { sourceId: `${sourceNode.id}_top`, targetId: `${targetNode.id}_right` }
+                : this.getOptimalConnectorId(sourceNode, targetNode);
             if (
               conn.sourceNodeId === baseSourceId &&
               conn.targetNodeId === baseTargetId &&
@@ -1352,11 +1405,47 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
       end === 'source' ? conn.sourceId : conn.targetId,
     );
     const node = this.nodes().find((n) => n.id === nodeId);
-    return node && !node.isAnchor
-      ? `${nodeId}__box`
-      : end === 'source'
-        ? conn.sourceId
-        : conn.targetId;
+    if (node && !node.isAnchor) {
+      // La autoasociación es un lazo entre dos puntos fijos de la esquina de la clase
+      if (this.isSelfConn(conn)) return `${nodeId}__loop_${end === 'source' ? 'a' : 'b'}`;
+      return `${nodeId}__box`;
+    }
+    return end === 'source' ? conn.sourceId : conn.targetId;
+  }
+
+  /** La relación une una clase consigo misma (se dibuja como un lazo). */
+  isSelfConn(conn: UmlConnection): boolean {
+    const source = this.baseId(conn.sourceNodeId, conn.sourceId);
+    return !!source && source === this.baseId(conn.targetNodeId, conn.targetId);
+  }
+
+  /**
+   * Hacia dónde crece el texto de un rol para no pisar la línea ni su clase: en una línea más
+   * bien horizontal se aleja de la clase de ese extremo; en una vertical, de la propia línea.
+   */
+  roleExtends(conn: UmlConnection, atTarget = false): 'left' | 'right' {
+    if (this.isSelfConn(conn)) return 'right';
+    const center = (id: string) => {
+      const n = this.nodes().find((node) => node.id === id);
+      return n
+        ? {
+            x: n.position.x + this.getNodeWidth(n) / 2,
+            y: n.position.y + this.getNodeHeight(n) / 2,
+          }
+        : { x: 0, y: 0 };
+    };
+    const s = center(this.baseId(conn.sourceNodeId, conn.sourceId));
+    const t = center(this.baseId(conn.targetNodeId, conn.targetId));
+    const dx = t.x - s.x;
+    const dy = t.y - s.y;
+    if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 !== atTarget ? 'right' : 'left';
+    // El rol se dibuja a la izquierda de una línea que baja y a la derecha de una que sube
+    return dy >= 0 ? 'left' : 'right';
+  }
+
+  /** ¿Lleva ese extremo la punta de flecha abierta de la navegabilidad? */
+  hasArrow(conn: UmlConnection, end: 'source' | 'target'): boolean {
+    return hasNavigationArrow(conn, end, this.isDiamondAtStart(conn));
   }
 
   isConnectionSelected(connId: string): boolean {
@@ -1457,7 +1546,8 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
       this.relationSourceId.set(node.id);
       return;
     }
-    if (sourceId === node.id) {
+    // Segundo clic en la misma clase: autoasociación (la herencia consigo misma no existe)
+    if (sourceId === node.id && !allowsSelfRelation(tool)) {
       this.relationSourceId.set(null);
       return;
     }
@@ -1482,7 +1572,11 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
       'composition',
       'association_class',
     ].includes(type);
-    const optimal = this.getOptimalConnectorId(sourceNode, targetNode);
+    const isSelf = sourceNode.id === targetNode.id;
+    if (isSelf && !allowsSelfRelation(type)) return;
+    const optimal = isSelf
+      ? { sourceId: `${sourceNode.id}_top`, targetId: `${targetNode.id}_right` }
+      : this.getOptimalConnectorId(sourceNode, targetNode);
     const newConnection: UmlConnection = {
       id: `conn_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
       sourceNodeId: sourceNode.id,
@@ -1490,8 +1584,10 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
       sourceId: optimal.sourceId,
       targetId: optimal.targetId,
       type: isAssocClass ? 'association' : type,
-      sourceMultiplicity: isAssocClass ? '0..*' : withMultiplicity ? '1' : '',
-      targetMultiplicity: isAssocClass ? '0..*' : withMultiplicity ? '1..*' : '',
+      // En una autoasociación lo habitual es «0..1 — *» (un jefe, muchos subordinados)
+      sourceMultiplicity: isAssocClass ? '0..*' : !withMultiplicity ? '' : isSelf ? '0..1' : '1',
+      targetMultiplicity: isAssocClass ? '0..*' : !withMultiplicity ? '' : isSelf ? '*' : '1..*',
+      navigability: 'unspecified',
     };
 
     this.batchingHistory = true;
@@ -1578,6 +1674,9 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
               targetId: c.sourceId,
               sourceMultiplicity: c.targetMultiplicity,
               targetMultiplicity: c.sourceMultiplicity,
+              sourceRole: c.targetRole,
+              targetRole: c.sourceRole,
+              navigability: reverseNavigability(c.navigability),
             }
           : c,
       ),
@@ -1589,6 +1688,7 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
   toggleAssociationClass(connId: string): void {
     const conn = this.connections().find((c) => c.id === connId);
     if (!conn || this.isReadOnly()) return;
+    if (!conn.assocAnchorNodeId && this.isSelfConn(conn)) return;
     this.flushPendingCommit();
     if (conn.assocAnchorNodeId) {
       this.removeAssociationClass(conn);
@@ -2280,6 +2380,9 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
         c.name || '',
         c.sourceMultiplicity || '',
         c.targetMultiplicity || '',
+        c.sourceRole || '',
+        c.targetRole || '',
+        normalizeNavigability(c.navigability),
       ]),
     ]);
   }
@@ -2296,15 +2399,8 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
       height: n.height,
       isAnchor: n.isAnchor,
       assocMainConnId: n.assocMainConnId,
-      attributes: (n.attributes || []).map((a: any) => ({
-        name: a.name,
-        type: this.normalizeDataType(a.type),
-      })),
-      methods: (n.methods || []).map((m: any) => ({
-        name: m.name,
-        parameters: m.parameters || '',
-        returnType: this.normalizeReturnType(m.returnType),
-      })),
+      attributes: (n.attributes || []).map((a: any) => this.cleanAttribute(a)),
+      methods: (n.methods || []).map((m: any) => this.cleanMethod(m)),
     }));
   }
 
@@ -2326,6 +2422,9 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
         name: c.name || undefined,
         sourceMultiplicity: c.sourceMultiplicity || '',
         targetMultiplicity: c.targetMultiplicity || '',
+        sourceRole: c.sourceRole || undefined,
+        targetRole: c.targetRole || undefined,
+        navigability: normalizeNavigability(c.navigability),
         assocAnchorNodeId: c.assocAnchorNodeId || undefined,
       }));
   }
@@ -2471,18 +2570,18 @@ export class DiagramEditorComponent implements OnInit, OnDestroy {
       fresh.nodes.map((n) => ({
         ...n,
         width: n.width || CLASS_LAYOUT.minWidth,
-        attributes: (n.attributes || []).map((a) => ({
-          name: a.name,
-          type: this.normalizeDataType(a.type),
-        })),
-        methods: (n.methods || []).map((m) => ({
-          name: m.name,
-          parameters: m.parameters || '',
-          returnType: this.normalizeReturnType(m.returnType),
-        })),
+        attributes: (n.attributes || []).map((a) => this.cleanAttribute(a)),
+        methods: (n.methods || []).map((m) => this.cleanMethod(m)),
       })),
     );
-    this.connections.set(fresh.connections);
+    this.connections.set(
+      fresh.connections.map((c) => ({
+        ...c,
+        sourceRole: c.sourceRole || undefined,
+        targetRole: c.targetRole || undefined,
+        navigability: normalizeNavigability(c.navigability),
+      })),
+    );
     this.updateConnectionEndpoints();
     this.markAsUnsaved();
     this.collaborationService.sendDiagramSync(this.nodes(), this.connections(), action);

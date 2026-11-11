@@ -10,6 +10,7 @@ import {
 } from '@ng-icons/heroicons/outline';
 import { UmlAttribute, UmlClassNode, UmlMethod } from '../../../../../core/models/diagram.model';
 import { TranslatePipe } from '../../../../../core/i18n';
+import { VISIBILITY_OPTIONS } from '../../../../../core/utils/uml-notation';
 
 type ListKind = 'attributes' | 'methods';
 
@@ -32,6 +33,8 @@ export class ClassEditPanelComponent implements AfterViewInit {
   readonly top = input<number>(0);
   readonly predefinedTypes = input<string[]>([]);
   readonly predefinedReturnTypes = input<string[]>([]);
+
+  readonly visibilityOptions = VISIBILITY_OPTIONS;
 
   readonly nodeChange = output<UmlClassNode>();
   readonly closed = output<void>();
@@ -68,7 +71,7 @@ export class ClassEditPanelComponent implements AfterViewInit {
   addAttribute(afterIndex?: number): void {
     const attributes = [...this.node().attributes];
     const at = afterIndex === undefined ? attributes.length : afterIndex + 1;
-    attributes.splice(at, 0, { name: '', type: 'String' });
+    attributes.splice(at, 0, { name: '', type: 'String', visibility: 'private' });
     this.emit({ attributes });
     this.focusRow('attr', at);
   }
@@ -87,7 +90,7 @@ export class ClassEditPanelComponent implements AfterViewInit {
   addMethod(afterIndex?: number): void {
     const methods = [...this.node().methods];
     const at = afterIndex === undefined ? methods.length : afterIndex + 1;
-    methods.splice(at, 0, { name: '', parameters: '', returnType: 'void' });
+    methods.splice(at, 0, { name: '', parameters: '', returnType: 'void', visibility: 'public' });
     this.emit({ methods });
     this.focusRow('method', at);
   }
