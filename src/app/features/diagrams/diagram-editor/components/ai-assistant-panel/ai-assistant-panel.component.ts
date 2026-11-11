@@ -56,6 +56,20 @@ import { UmlClassNode, UmlConnection } from '../../../../../core/models/diagram.
 import { TranslatePipe, TranslationService } from '../../../../../core/i18n';
 import { DictationStatus, LocalDictation, Recording } from './local-dictation';
 
+/** Una sesión de dictado: el navegador escribe en vivo y la grabación es el respaldo. */
+interface DictationSession {
+  recording: Recording;
+  recognition: any | null;
+  /** El dictado del navegador falló: al terminar transcribe Whisper. */
+  browserFailed: boolean;
+  /** Texto definitivo que entregó el navegador. */
+  browserText: string;
+  /** Lo que ya había en el cuadro al empezar a dictar. */
+  baseText: string;
+  /** La persona pulsó para terminar: no reanudar el dictado del navegador. */
+  stopping: boolean;
+}
+
 /** Las fotos se reducen antes de enviarlas: el modelo no necesita más y viajan más rápido. */
 const MAX_IMAGE_SIDE = 1600;
 /** A partir de aquí se avisa de que el servidor del modelo puede estar arrancando. */
@@ -256,7 +270,8 @@ export class AiAssistantPanelComponent implements OnDestroy {
   private replyTimeout: ReturnType<typeof setTimeout> | null = null;
 
   private speechRecognition: any = null;
-  private recording: Recording | null = null;
+  /** Dictado en curso (navegador + grabación para Whisper); null si no se está dictando. */
+  private dictation: DictationSession | null = null;
   private webcamMediaStream: MediaStream | null = null;
 
   readonly suggestions = computed(() => {
@@ -394,7 +409,12 @@ export class AiAssistantPanelComponent implements OnDestroy {
     if (this.speechRecognition && this.isVoiceListening()) {
       this.speechRecognition.stop();
     }
-    this.recording?.cancel();
+    if (this.dictation) {
+      this.dictation.stopping = true;
+      this.dictation.recognition?.abort();
+      this.dictation.recording.cancel();
+      this.dictation = null;
+    }
     this.stopWebcam();
     if (this.slowTimer) clearTimeout(this.slowTimer);
     if (this.replyTimeout) clearTimeout(this.replyTimeout);
@@ -947,9 +967,14 @@ export class AiAssistantPanelComponent implements OnDestroy {
   }
 
   // -------------------------------------------------------------
-  // DICTADO POR VOZ: WHISPER EN EL NAVEGADOR (IA LOCAL)
+  // DICTADO POR VOZ COMBINADO: el del navegador (rápido, en vivo) y, si falla, Whisper local
   // -------------------------------------------------------------
-  /** Pulsar: graba. Pulsar otra vez: transcribe en el propio equipo y añade el texto. */
+  /**
+   * Pulsar: graba y, a la vez, usa el dictado del navegador, que escribe en vivo.
+   * Pulsar otra vez: si el navegador entendió, se queda su texto; si falló (Edge suele dar
+   * «network») o no entendió nada, se transcribe la grabación con Whisper en el propio equipo,
+   * sin tener que repetir la frase.
+   */
   async toggleVoiceRecognition(): Promise<void> {
     if (this.voiceStatus()) return; // transcribiendo la grabación anterior
 
@@ -964,48 +989,147 @@ export class AiAssistantPanelComponent implements OnDestroy {
       this.toggleBrowserSpeech();
       return;
     }
-
-    if (this.recording) {
-      const recording = this.recording;
-      this.recording = null;
-      this.isVoiceListening.set(false);
-      this.voiceStatus.set('Transcribiendo…');
-      try {
-        const text = await recording.stop((s) => this.showDictationStatus(s));
-        if (text) {
-          const current = this.aiPrompt().trim();
-          this.aiPrompt.set(current ? `${current} ${text}` : text);
-        } else {
-          this.addLocalError(
-            'Dictado por voz: no se entendió nada. Habla más cerca del micrófono.',
-          );
-        }
-      } catch (err: any) {
-        console.error('Dictado local', err);
-        // El motivo real ayuda a diagnosticar (red, GPU, audio que el navegador no decodifica…)
-        const detail = String(err?.message || err?.name || err || '').slice(0, 160);
-        this.addLocalError(
-          `Dictado por voz: no se pudo transcribir con el modelo de voz local${detail ? ` (${detail})` : ''}. Si es la primera vez, revisa tu conexión: el modelo se descarga una sola vez.`,
-        );
-      } finally {
-        this.voiceStatus.set(null);
-      }
+    if (this.dictation) {
+      await this.finishDictation();
       return;
     }
 
+    let recording: Recording;
     try {
-      this.recording = await LocalDictation.start();
-      this.isVoiceListening.set(true);
-      // Descarga el modelo mientras la persona habla, sin mostrar nada todavía
-      LocalDictation.preload();
+      recording = await LocalDictation.start();
     } catch (err: any) {
-      this.recording = null;
-      this.isVoiceListening.set(false);
       this.addLocalError(
         err?.name === 'NotAllowedError'
           ? 'Dictado por voz: el navegador bloqueó el micrófono. Permítelo en el candado de la barra de direcciones.'
           : 'Dictado por voz: no se detectó ningún micrófono.',
       );
+      return;
+    }
+    const session: DictationSession = {
+      recording,
+      recognition: null,
+      browserFailed: false,
+      browserText: '',
+      baseText: this.aiPrompt().trim(),
+      stopping: false,
+    };
+    this.dictation = session;
+    this.isVoiceListening.set(true);
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      this.startBrowserRecognition(session, SpeechRecognition);
+    } else {
+      this.switchToLocalModel(session);
+    }
+  }
+
+  /** El navegador no sirve: la grabación sigue y Whisper la transcribirá al terminar. */
+  private switchToLocalModel(session: DictationSession): void {
+    if (session.browserFailed) return;
+    session.browserFailed = true;
+    // Quita lo que el navegador hubiera escrito a medias; vale el texto de Whisper
+    if (this.dictation === session) this.aiPrompt.set(session.baseText);
+    // El modelo se descarga mientras la persona sigue hablando
+    LocalDictation.preload();
+  }
+
+  private startBrowserRecognition(session: DictationSession, SpeechRecognition: any): void {
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'es-419'; // español latinoamericano
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event: any) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const piece = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          session.browserText += `${piece} `;
+        } else {
+          interim += piece;
+        }
+      }
+      if (session.browserFailed) return;
+      const spoken = `${session.browserText}${interim}`.trim();
+      if (spoken) {
+        this.aiPrompt.set(session.baseText ? `${session.baseText} ${spoken}` : spoken);
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      // Silencio o parada manual: normal
+      if (event?.error === 'no-speech' || event?.error === 'aborted') return;
+      // Red, servicio no disponible, idioma…: sin aviso, sigue la grabación para Whisper
+      console.warn('Dictado del navegador no disponible:', event?.error);
+      this.switchToLocalModel(session);
+    };
+
+    recognition.onend = () => {
+      // Chrome corta tras un silencio largo: si se sigue grabando, se reanuda
+      if (this.dictation === session && !session.stopping && !session.browserFailed) {
+        try {
+          recognition.start();
+        } catch {
+          this.switchToLocalModel(session);
+        }
+      }
+    };
+
+    session.recognition = recognition;
+    try {
+      recognition.start();
+    } catch {
+      this.switchToLocalModel(session);
+    }
+  }
+
+  private async finishDictation(): Promise<void> {
+    const session = this.dictation!;
+    this.dictation = null;
+    session.stopping = true;
+    this.isVoiceListening.set(false);
+
+    // Al parar, el navegador aún puede entregar el último resultado: se espera su «end»
+    const recognition = session.recognition;
+    if (recognition && !session.browserFailed) {
+      await new Promise<void>((resolve) => {
+        recognition.addEventListener('end', () => resolve(), { once: true });
+        setTimeout(resolve, 1500);
+        try {
+          recognition.stop();
+        } catch {
+          resolve();
+        }
+      });
+    }
+
+    if (!session.browserFailed && session.browserText.trim()) {
+      // El navegador entendió: su texto ya está en el cuadro y la grabación sobra
+      session.recording.cancel();
+      return;
+    }
+
+    // El navegador falló o no entendió nada: Whisper transcribe la grabación
+    this.voiceStatus.set('Transcribiendo…');
+    try {
+      const text = await session.recording.stop((s) => this.showDictationStatus(s));
+      if (text) {
+        this.aiPrompt.set(session.baseText ? `${session.baseText} ${text}` : text);
+      } else {
+        this.addLocalError('Dictado por voz: no se entendió nada. Habla más cerca del micrófono.');
+      }
+    } catch (err: any) {
+      console.error('Dictado local', err);
+      // El motivo real ayuda a diagnosticar (red, audio que el navegador no decodifica…)
+      const detail = String(err?.message || err?.name || err || '').slice(0, 160);
+      this.addLocalError(
+        `Dictado por voz: no se pudo transcribir con el modelo de voz local${detail ? ` (${detail})` : ''}. Si es la primera vez, revisa tu conexión: el modelo se descarga una sola vez.`,
+      );
+    } finally {
+      this.voiceStatus.set(null);
     }
   }
 
